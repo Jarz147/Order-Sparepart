@@ -70,17 +70,17 @@
                 
                 <select id="pic_order" required class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
                     <option value="" disabled selected>PILIH PIC REQUEST</option>
-                    <option value="PIC 1">Wawan Gianto</option>
-                    <option value="PIC 2">Nur Rohmat</option>
-                    <option value="PIC 3">Aryo Setioko</option>
-                    <option value="PIC 4">Budi Irawan</option>
-                    <option value="PIC 5">Wisnu Ernandi</option>
-                    <option value="PIC 6">Pajar Ardianto</option>
-                    <option value="PIC 7">Iwan Prasetyo</option>
-                    <option value="PIC 8">Azkia Rasya Ikbar</option>
-                    <option value="PIC 9">Randika Septian</option>
-                    <option value="PIC 10">Irwan Bagustian</option>
-                    <option value="PIC 11">Deni Andriansa</option>
+                    <option value="Wawan Gianto">Wawan Gianto</option>
+                    <option value="Nur Rohmat">Nur Rohmat</option>
+                    <option value="Aryo Setioko">Aryo Setioko</option>
+                    <option value="Budi Irawan">Budi Irawan</option>
+                    <option value="Wisnu Ernandi">Wisnu Ernandi</option>
+                    <option value="Pajar Ardianto">Pajar Ardianto</option>
+                    <option value="Iwan Prasetyo">Iwan Prasetyo</option>
+                    <option value="Azkia Rasya Ikbar">Azkia Rasya Ikbar</option>
+                    <option value="Randika Septian">Randika Septian</option>
+                    <option value="Irwan Bagustian">Irwan Bagustian</option>
+                    <option value="Deni Andriansa">Deni Andriansa</option>
                 </select>
                 
                 <div class="md:col-span-4 flex justify-end">
@@ -89,9 +89,20 @@
             </form>
         </div>
 
-        <div class="mb-6 relative">
-            <input type="text" id="search-input" placeholder="Cari barang, mesin, atau status..." class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold italic">
-            <span class="absolute left-4 top-3.5 opacity-30 text-lg">🔍</span>
+        <div class="mb-6 flex flex-col md:flex-row gap-4">
+            <div class="relative flex-1">
+                <input type="text" id="search-input" placeholder="Cari barang, mesin, atau status..." class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold italic">
+                <span class="absolute left-4 top-3.5 opacity-30 text-lg">🔍</span>
+            </div>
+            <div class="relative">
+                <select id="sort-select" class="h-full px-5 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-[10px] font-black uppercase text-slate-500 cursor-pointer border-transparent">
+                    <option value="newest">⏰ Terbaru</option>
+                    <option value="oldest">⌛ Terlama</option>
+                    <option value="name-asc">🔠 Nama (A-Z)</option>
+                    <option value="qty-desc">🔢 Qty Terbanyak</option>
+                    <option value="status">📊 Grup Status</option>
+                </select>
+            </div>
         </div>
 
         <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
