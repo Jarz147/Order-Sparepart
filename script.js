@@ -10,33 +10,19 @@ let localData = [];
 
 // --- SESSION CHECK ---
 async function checkSession() {
-    try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-            window.location.href = 'login.html';
-        } else {
-            currentEmail = session.user.email;
-            const userDisplay = document.getElementById('user-display');
-            if (userDisplay) userDisplay.innerText = `User: ${currentEmail}`;
-            
-            const formContainer = document.getElementById('form-container');
-            const adminTools = document.getElementById('admin-tools');
-
-            if (currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-                adminTools?.classList.remove('hidden');
-                formContainer?.classList.add('hidden');
-            } else {
-                adminTools?.classList.add('hidden');
-                formContainer?.classList.remove('hidden');
-            }
-            fetchOrders();
-        }
-    } catch (err) {
-        console.error("Session error:", err);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        window.location.href = 'login.html';
+    } else {
+        currentEmail = session.user.email;
+        document.getElementById('user-display').innerText = `User: ${currentEmail}`;
+        const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
+        document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
+        fetchOrders();
     }
 }
 
-// --- FETCH DATA ---
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
     if (!error) { 
@@ -45,45 +31,69 @@ async function fetchOrders() {
     }
 }
 
-// --- FORM SUBMIT ---
-const orderForm = document.getElementById('order-form');
-if (orderForm) {
-    orderForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('btn-submit');
-        btn.innerText = "MENGIRIM..."; btn.disabled = true;
+// --- FUNGSI UPLOAD FOTO KE STORAGE ---
+async function uploadFile(file) {
+    if (!file) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
 
-        const payload = {
-            'Nama Barang': document.getElementById('nama_barang').value,
-            'Spesifikasi': document.getElementById('spesifikasi').value,
-            'Quantity Order': parseInt(document.getElementById('qty').value),
-            'Satuan': document.getElementById('satuan').value,
-            'Nama Mesin': document.getElementById('nama_mesin').value,
-            'Nama Line': document.getElementById('nama_line').value,
-            'PIC Order': document.getElementById('pic_order').value,
-            'Status': 'Pending'
-        };
+    const { data, error } = await supabase.storage
+        .from('sparepart-images')
+        .upload(filePath, file);
 
-        const { error } = await supabase.from('Order-sparepart').insert([payload]);
-        if (error) alert(error.message); else { orderForm.reset(); fetchOrders(); }
-        btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
-    });
+    if (error) {
+        console.error("Gagal upload:", error);
+        return null;
+    }
+    
+    const { data: publicData } = supabase.storage.from('sparepart-images').getPublicUrl(filePath);
+    return publicData.publicUrl;
 }
 
-// --- LOGIC: FILTER & SORT ---
+// --- SUBMIT FORM ---
+document.getElementById('order-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit');
+    btn.innerText = "MENGIRIM..."; btn.disabled = true;
+
+    // Proses Upload
+    const fileInput = document.getElementById('foto_barang');
+    const fotoUrl = await uploadFile(fileInput.files[0]);
+
+    const payload = {
+        'Nama Barang': document.getElementById('nama_barang').value,
+        'Spesifikasi': document.getElementById('spesifikasi').value,
+        'Quantity Order': parseInt(document.getElementById('qty').value),
+        'Satuan': document.getElementById('satuan').value,
+        'Nama Mesin': document.getElementById('nama_mesin').value,
+        'Nama Line': document.getElementById('nama_line').value,
+        'PIC Order': document.getElementById('pic_order').value,
+        'gambar': fotoUrl,
+        'Status': 'Pending'
+    };
+
+    const { error } = await supabase.from('Order-sparepart').insert([payload]);
+    if (error) alert("Error: " + error.message); 
+    else { 
+        document.getElementById('order-form').reset(); 
+        fetchOrders(); 
+    }
+    btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
+});
+
+// --- FITUR SORT & FILTER ---
 function applyFiltersAndSort() {
-    const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || "";
+    const term = document.getElementById('search-input')?.value.toLowerCase() || "";
     const sortCriteria = document.getElementById('sort-select')?.value || "newest";
 
-    // 1. Filter data berdasarkan pencarian
     let filtered = localData.filter(i => 
-        (i['Nama Barang']?.toLowerCase().includes(searchTerm)) || 
-        (i['Nama Mesin']?.toLowerCase().includes(searchTerm)) || 
-        (i['PIC Order']?.toLowerCase().includes(searchTerm)) ||
-        (i.Status?.toLowerCase().includes(searchTerm))
+        (i['Nama Barang']?.toLowerCase().includes(term)) || 
+        (i['Nama Mesin']?.toLowerCase().includes(term)) ||
+        (i['PIC Order']?.toLowerCase().includes(term)) ||
+        (i['Status']?.toLowerCase().includes(term))
     );
 
-    // 2. Sort data berdasarkan kriteria
     switch (sortCriteria) {
         case 'newest':
             filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -91,72 +101,64 @@ function applyFiltersAndSort() {
         case 'oldest':
             filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
             break;
-        case 'name-asc':
-            filtered.sort((a, b) => (a['Nama Barang'] || "").localeCompare(b['Nama Barang'] || ""));
-            break;
-        case 'qty-desc':
-            filtered.sort((a, b) => (b['Quantity Order'] || 0) - (a['Quantity Order'] || 0));
-            break;
         case 'status':
             filtered.sort((a, b) => (a.Status || "").localeCompare(b.Status || ""));
+            break;
+        case 'line':
+            filtered.sort((a, b) => (a['Nama Line'] || "").localeCompare(b['Nama Line'] || ""));
+            break;
+        case 'pic':
+            filtered.sort((a, b) => (a['PIC Order'] || "").localeCompare(b['PIC Order'] || ""));
+            break;
+        case 'urutan':
+            filtered.sort((a, b) => (a['Nama Barang'] || "").localeCompare(b['Nama Barang'] || ""));
             break;
     }
 
     renderTable(filtered);
 }
 
-// --- RENDERING TABLE ---
+// --- RENDER TABEL ---
 function renderTable(data) {
     const body = document.getElementById('data-body');
-    if (!body) return;
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
-    body.innerHTML = data.map(i => {
-        const isDone = i.Status === 'Selesai';
-        const isProcess = i.Status === 'On Process';
-        
+    body.innerHTML = data.map((i, index) => {
+        const fotoHtml = i.gambar 
+            ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
+            : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300 italic">No Pic</div>`;
+
         return `
             <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
+                <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
+                <td class="px-4 py-5 flex justify-center">${fotoHtml}</td>
                 <td class="px-6 py-5 text-[10px] text-slate-400 font-mono text-center">${new Date(i.created_at).toLocaleDateString('id-ID')}</td>
                 <td class="px-6 py-5">
                     <div class="text-slate-800 font-bold text-sm uppercase">${i['Nama Barang']}</div>
                     <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
                     <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
                 </td>
-                <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']}</td>
-                <td class="px-6 py-5 text-center text-[10px] font-black text-slate-400 uppercase">${i.Satuan || 'PCS'}</td>
-                <td class="px-6 py-5">
-                    <div class="text-[10px] text-slate-500 font-bold uppercase">${i['Nama Line']}</div>
-                    <div class="text-[9px] text-slate-400 italic uppercase">${i['Nama Mesin']}</div>
-                </td>
+                <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
+                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
                 <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
                 <td class="px-6 py-5 text-center">
                     <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
-                    ${isDone ? 'bg-emerald-100 text-emerald-700' : isProcess ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
+                    ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
                         ${i.Status || 'Pending'}
                     </span>
                 </td>
                 <td class="px-6 py-5 text-center">
-                    ${isAdmin ? `
-                        <button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status}')" 
-                        class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                                <path d="M5.433 13.917l1.758-4.293a1 1 0 01.593-.593l4.293-1.758a1 1 0 011.09.217l3.654 3.654a1 1 0 01.217 1.09l-1.758 4.293a1 1 0 01-.593.593l-4.293 1.758a1 1 0 01-1.09-.217l-3.654-3.654a1 1 0 01-.217-1.09zM12 15a1 1 0 00.33-.06l1.246-.509a1 1 0 00.706-.893c.092-.596-.341-1.09-.94-1.09-.588 0-1.077.494-1.157 1.09-.08.596.353 1.09.94 1.09z" />
-                                <path fill-rule="evenodd" d="M12.293 2.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-8.586 8.586-4.293 1.758 1.758-4.293 8.586-8.586zM6.917 13.433a2.001 2.001 0 00-2.434 2.434l-.509 1.246a.5.5 0 00.627.627l1.246-.509a2.001 2.001 0 002.434-2.434l-3.654-3.654z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    ` : '<span class="text-[8px] text-slate-300 font-bold">VIEW ONLY</span>'}
+                    ${isAdmin ? `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">Edit</button>` : '<span class="text-[8px] text-slate-300 font-bold">VIEW</span>'}
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-// --- EVENT LISTENERS ---
+// --- UTILITIES & MODAL ---
 document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
 document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
 
-// --- UTILITIES ---
 window.openModal = (id, pr, po, status) => {
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-pr').value = pr;
@@ -173,10 +175,18 @@ window.saveAdminUpdate = async () => {
         'PO': document.getElementById('edit-po').value,
         'Status': document.getElementById('edit-status').value
     }).eq('id', id);
-    if (!error) { window.closeModal(); fetchOrders(); } else { alert("Gagal update data!"); }
+    if (!error) { 
+        window.closeModal(); 
+        fetchOrders(); 
+    } else { 
+        alert("Gagal update data!"); 
+    }
 };
 
-window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
+window.logout = async () => { 
+    await supabase.auth.signOut(); 
+    window.location.href = 'login.html'; 
+};
 
 window.exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(localData);
