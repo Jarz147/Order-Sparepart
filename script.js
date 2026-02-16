@@ -8,6 +8,7 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
+// --- SESSION CHECK ---
 async function checkSession() {
     try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -35,11 +36,16 @@ async function checkSession() {
     }
 }
 
+// --- FETCH DATA ---
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
-    if (!error) { localData = data; renderTable(data); }
+    if (!error) { 
+        localData = data; 
+        applyFiltersAndSort(); 
+    }
 }
 
+// --- FORM SUBMIT ---
 const orderForm = document.getElementById('order-form');
 if (orderForm) {
     orderForm.addEventListener('submit', async (e) => {
@@ -54,7 +60,7 @@ if (orderForm) {
             'Satuan': document.getElementById('satuan').value,
             'Nama Mesin': document.getElementById('nama_mesin').value,
             'Nama Line': document.getElementById('nama_line').value,
-            'PIC Order': document.getElementById('pic_order').value, // Mengambil dari dropdown
+            'PIC Order': document.getElementById('pic_order').value,
             'Status': 'Pending'
         };
 
@@ -64,6 +70,42 @@ if (orderForm) {
     });
 }
 
+// --- LOGIC: FILTER & SORT ---
+function applyFiltersAndSort() {
+    const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || "";
+    const sortCriteria = document.getElementById('sort-select')?.value || "newest";
+
+    // 1. Filter data berdasarkan pencarian
+    let filtered = localData.filter(i => 
+        (i['Nama Barang']?.toLowerCase().includes(searchTerm)) || 
+        (i['Nama Mesin']?.toLowerCase().includes(searchTerm)) || 
+        (i['PIC Order']?.toLowerCase().includes(searchTerm)) ||
+        (i.Status?.toLowerCase().includes(searchTerm))
+    );
+
+    // 2. Sort data berdasarkan kriteria
+    switch (sortCriteria) {
+        case 'newest':
+            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            break;
+        case 'oldest':
+            filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            break;
+        case 'name-asc':
+            filtered.sort((a, b) => (a['Nama Barang'] || "").localeCompare(b['Nama Barang'] || ""));
+            break;
+        case 'qty-desc':
+            filtered.sort((a, b) => (b['Quantity Order'] || 0) - (a['Quantity Order'] || 0));
+            break;
+        case 'status':
+            filtered.sort((a, b) => (a.Status || "").localeCompare(b.Status || ""));
+            break;
+    }
+
+    renderTable(filtered);
+}
+
+// --- RENDERING TABLE ---
 function renderTable(data) {
     const body = document.getElementById('data-body');
     if (!body) return;
@@ -110,6 +152,10 @@ function renderTable(data) {
     }).join('');
 }
 
+// --- EVENT LISTENERS ---
+document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
+document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
+
 // --- UTILITIES ---
 window.openModal = (id, pr, po, status) => {
     document.getElementById('edit-id').value = id;
@@ -119,6 +165,7 @@ window.openModal = (id, pr, po, status) => {
     document.getElementById('modal-admin')?.classList.remove('hidden');
 };
 window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
+
 window.saveAdminUpdate = async () => {
     const id = document.getElementById('edit-id').value;
     const { error } = await supabase.from('Order-sparepart').update({
@@ -128,22 +175,14 @@ window.saveAdminUpdate = async () => {
     }).eq('id', id);
     if (!error) { window.closeModal(); fetchOrders(); } else { alert("Gagal update data!"); }
 };
+
 window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
+
 window.exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(localData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
     XLSX.writeFile(wb, "Sparepart_Report.xlsx");
 };
-document.getElementById('search-input')?.addEventListener('input', (e) => {
-    const val = e.target.value.toLowerCase();
-    const filtered = localData.filter(i => 
-        (i['Nama Barang']?.toLowerCase().includes(val)) || 
-        (i['Nama Mesin']?.toLowerCase().includes(val)) || 
-        (i['PIC Order']?.toLowerCase().includes(val)) ||
-        (i.Status?.toLowerCase().includes(val))
-    );
-    renderTable(filtered);
-});
 
 checkSession();
