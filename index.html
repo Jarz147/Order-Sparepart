@@ -7,38 +7,57 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        .table-container { max-height: 60vh; overflow-y: auto; }
+        .table-container { max-height: 60vh; overflow-y: auto; overflow-x: auto; }
+        thead th { position: sticky; top: 0; z-index: 20; background-color: #f8fafc; }
         #modal-edit:not(.hidden) { display: flex; }
+        .img-preview { width: 45px; height: 45px; object-fit: cover; border-radius: 10px; cursor: pointer; border: 1px solid #e2e8f0; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen pb-20 font-sans text-slate-900">
 
     <div class="max-w-7xl mx-auto px-4 py-8">
         <div class="mb-8 flex justify-between items-center border-b pb-6">
-            <h1 class="text-2xl font-black text-slate-800">Sparepart <span class="text-indigo-600">Pro</span></h1>
-            <p id="user-display" class="text-[10px] font-bold text-slate-500 uppercase"></p>
+            <h1 class="text-2xl font-black text-slate-800 tracking-tighter">Sparepart <span class="text-indigo-600">Pro</span></h1>
+            <div class="text-right">
+                <p id="user-display" class="text-[10px] font-black text-slate-400 uppercase tracking-widest"></p>
+                <button onclick="window.logout()" class="text-[9px] font-bold text-rose-500 hover:underline">LOGOUT</button>
+            </div>
         </div>
 
         <div class="bg-white rounded-3xl p-6 mb-8 border shadow-sm">
+            <h2 class="text-[10px] font-black mb-4 text-indigo-500 uppercase tracking-widest">Tambah Permintaan Baru</h2>
             <form id="order-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <input type="text" id="nama_barang" required placeholder="Nama Barang" class="md:col-span-2 px-4 py-3 bg-slate-50 rounded-xl border-none outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500">
-                <input type="text" id="spesifikasi" placeholder="Spesifikasi" class="md:col-span-2 px-4 py-3 bg-slate-50 rounded-xl border-none outline-none ring-1 ring-slate-200">
-                <input type="text" id="detail_pesanan" placeholder="Detail Pesanan" class="md:col-span-4 px-4 py-3 bg-slate-50 rounded-xl border-none outline-none ring-1 ring-slate-200">
-                <input type="number" id="qty" required placeholder="Qty" class="px-4 py-3 bg-slate-50 rounded-xl border-none outline-none ring-1 ring-slate-200">
-                <select id="satuan" class="px-4 py-3 bg-slate-50 rounded-xl border-none outline-none ring-1 ring-slate-200">
-                    <option value="PCS">PCS</option><option value="SET">SET</option><option value="METER">METER</option>
-                </select>
-                <select id="nama_line" onchange="checkNewLine(this)" class="px-4 py-3 bg-slate-50 rounded-xl border-none outline-none ring-1 ring-slate-200">
+                <input type="text" id="nama_barang" required placeholder="Nama Barang" class="md:col-span-2 px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-semibold">
+                <input type="text" id="spesifikasi" placeholder="Spesifikasi" class="md:col-span-2 px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none">
+                <input type="text" id="detail_pesanan" placeholder="Detail Pesanan (Contoh: Urgent, Untuk Stok, dll)" class="md:col-span-4 px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none">
+                
+                <div class="flex gap-2">
+                    <input type="number" id="qty" required placeholder="Qty" class="w-2/3 px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none">
+                    <select id="satuan" class="w-1/3 px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none font-bold text-[10px]">
+                        <option value="PCS">PCS</option><option value="SET">SET</option><option value="METER">METER</option>
+                    </select>
+                </div>
+
+                <input type="text" id="nama_mesin" required placeholder="Nama Mesin" class="px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none">
+                
+                <select id="nama_line" onchange="window.checkNewLine(this)" class="px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none font-bold text-[10px]">
                     <option value="" disabled selected>Pilih Line</option>
-                    <option value="ADD_NEW_LINE" class="text-indigo-600 font-bold">+ TAMBAH LINE</option>
-                    <option value="Assy 1">Assy 1</option><option value="Assy 2">Assy 2</option>
+                    <option value="ADD_NEW_LINE" class="text-indigo-600 font-black">+ TAMBAH LINE BARU</option>
+                    <option value="Assy 1">Assy 1</option><option value="Assy 2">Assy 2</option><option value="Bending">Bending</option>
                 </select>
-                <select id="pic_order" onchange="checkNewPIC(this)" class="px-4 py-3 bg-slate-50 rounded-xl border-none outline-none ring-1 ring-slate-200">
+
+                <select id="pic_order" onchange="window.checkNewPIC(this)" class="px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none font-bold text-[10px]">
                     <option value="" disabled selected>Pilih PIC</option>
-                    <option value="ADD_NEW" class="text-indigo-600 font-bold">+ TAMBAH PIC</option>
-                    <option value="Deni">Deni</option>
+                    <option value="ADD_NEW" class="text-indigo-600 font-black">+ TAMBAH PIC BARU</option>
+                    <option value="Deni">Deni</option><option value="Wawan">Wawan</option>
                 </select>
-                <button type="submit" id="btn-submit" class="md:col-span-4 bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-indigo-700">Kirim Permintaan</button>
+
+                <div class="md:col-span-4 bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200">
+                    <label class="text-[9px] font-black text-slate-400 uppercase mb-2 block">Lampiran Foto (Opsional)</label>
+                    <input type="file" id="foto_barang" accept="image/*" class="text-xs file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-indigo-100 file:text-indigo-700">
+                </div>
+
+                <button type="submit" id="btn-submit" class="md:col-span-4 bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest shadow-lg hover:bg-indigo-700 transition-all">Kirim Permintaan</button>
             </form>
         </div>
 
@@ -46,46 +65,54 @@
             <div class="table-container">
                 <table class="w-full text-left">
                     <thead class="bg-slate-50 border-b">
-                        <tr class="text-[10px] font-black text-slate-400 uppercase">
-                            <th class="px-6 py-4 text-center">Aksi</th>
-                            <th class="px-6 py-4">Item</th>
-                            <th class="px-6 py-4">PIC & Detail</th>
-                            <th class="px-6 py-4 text-center">Qty</th>
+                        <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                            <th class="px-4 py-4 text-center">Aksi</th>
+                            <th class="px-4 py-4 text-center">ID Order</th>
+                            <th class="px-4 py-4 text-center">Foto</th>
+                            <th class="px-6 py-4">Item & Detail</th>
+                            <th class="px-4 py-4 text-center">Qty</th>
+                            <th class="px-6 py-4">PIC / Line</th>
                             <th class="px-6 py-4 text-center">Status</th>
                         </tr>
                     </thead>
-                    <tbody id="data-body"></tbody>
+                    <tbody id="data-body" class="text-sm"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <div id="modal-edit" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div id="modal-edit" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
-            <h3 class="font-black text-slate-800 mb-6 uppercase text-center">Update Permintaan</h3>
+            <h3 class="font-black text-slate-800 mb-6 uppercase text-center tracking-tighter text-xl">Update Permintaan</h3>
             <input type="hidden" id="edit-id">
             
             <div class="space-y-4">
                 <div>
                     <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Nama Barang</label>
-                    <input type="text" id="edit-nama" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="edit-nama" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border outline-none font-semibold focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div>
-                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Detail/Spek</label>
-                    <input type="text" id="edit-spek" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border outline-none focus:ring-2 focus:ring-indigo-500">
+                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Detail Pesanan</label>
+                    <input type="text" id="edit-spek" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border outline-none font-medium">
                 </div>
                 <div class="flex gap-2">
-                    <input type="number" id="edit-qty" class="w-2/3 px-5 py-3 bg-slate-50 rounded-2xl border outline-none">
-                    <select id="edit-satuan" class="w-1/3 px-5 py-3 bg-slate-50 rounded-2xl border outline-none">
-                        <option value="PCS">PCS</option><option value="SET">SET</option>
-                    </select>
+                    <div class="w-2/3">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Qty</label>
+                        <input type="number" id="edit-qty" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border outline-none font-bold">
+                    </div>
+                    <div class="w-1/3">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Satuan</label>
+                        <select id="edit-satuan" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border outline-none font-black text-[10px]">
+                            <option value="PCS">PCS</option><option value="SET">SET</option><option value="ROLL">ROLL</option>
+                        </select>
+                    </div>
                 </div>
                 
-                <div id="admin-fields-container" class="pt-4 border-t space-y-4">
-                    <p class="text-[8px] font-black text-indigo-500 uppercase text-center">Admin Controls</p>
-                    <input type="text" id="edit-pr" placeholder="No PR" class="w-full px-5 py-3 bg-slate-100 rounded-2xl border">
-                    <input type="text" id="edit-po" placeholder="No PO" class="w-full px-5 py-3 bg-slate-100 rounded-2xl border">
-                    <select id="edit-status" class="w-full px-5 py-3 bg-slate-100 rounded-2xl border font-bold">
+                <div id="admin-fields-container" class="pt-4 border-t space-y-3">
+                    <p class="text-[8px] font-black text-indigo-500 uppercase text-center mb-1">Admin Control Area</p>
+                    <input type="text" id="edit-pr" placeholder="No PR" class="w-full px-5 py-3 bg-slate-100 rounded-2xl border font-semibold outline-none focus:bg-white">
+                    <input type="text" id="edit-po" placeholder="No PO" class="w-full px-5 py-3 bg-slate-100 rounded-2xl border font-semibold outline-none focus:bg-white">
+                    <select id="edit-status" class="w-full px-5 py-3 bg-slate-100 rounded-2xl border font-black text-[10px]">
                         <option value="Pending">Pending</option>
                         <option value="On Process">On Process</option>
                         <option value="Selesai">Selesai</option>
@@ -95,7 +122,7 @@
 
             <div class="flex gap-3 mt-8">
                 <button onclick="window.closeModal()" class="flex-1 py-4 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase">Batal</button>
-                <button onclick="window.saveUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg">Simpan</button>
+                <button onclick="window.saveUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200">Simpan Perubahan</button>
             </div>
         </div>
     </div>
