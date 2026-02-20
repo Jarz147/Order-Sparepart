@@ -29,7 +29,7 @@ async function fetchOrders() {
 document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
-    btn.innerText = "MENGIRIM..."; btn.disabled = true;
+    btn.innerText = "PROSES..."; btn.disabled = true;
 
     const payload = {
         'Nama Barang': document.getElementById('nama_barang').value,
@@ -38,13 +38,17 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'Satuan': document.getElementById('satuan').value,
         'Nama Mesin': document.getElementById('nama_mesin').value,
         'Nama Line': document.getElementById('nama_line').value,
+        'PIC Order': document.getElementById('pic_order').value, // PIC ORDER DISIMPAN DISINI
         'Detail Pesanan': document.getElementById('detail_pesanan').value,
         'Status': 'Pending',
         'User Email': currentEmail
     };
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
-    if (!error) { document.getElementById('order-form').reset(); fetchOrders(); }
+    if (!error) { 
+        document.getElementById('order-form').reset(); 
+        fetchOrders(); 
+    } else { alert("Gagal Simpan: " + error.message); }
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
 
@@ -55,23 +59,30 @@ function renderTable(data) {
 
     body.innerHTML = data.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map((i, index) => {
         const canEdit = (isSpecialUser || isAdmin) && i.Status === 'Pending';
+        
         return `
-            <tr class="border-b hover:bg-slate-50">
-                <td class="px-4 py-4 text-center text-slate-400 text-xs">${index + 1}</td>
-                <td class="px-4 py-4">
-                    <div class="font-bold uppercase">${i['Nama Barang']}</div>
-                    <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
+            <tr class="border-b hover:bg-slate-50 transition">
+                <td class="px-4 py-5 text-center text-slate-400 text-xs font-bold">${index + 1}</td>
+                <td class="px-4 py-5">
+                    <div class="font-black uppercase text-slate-800 text-xs">${i['Nama Barang']}</div>
+                    <div class="text-[10px] text-slate-400 italic font-medium">${i.Spesifikasi || '-'}</div>
                 </td>
-                <td class="px-4 py-4 text-xs text-slate-600">${i['Detail Pesanan'] || '-'}</td>
-                <td class="px-4 py-4 text-center font-bold text-indigo-600">${i['Quantity Order']} ${i.Satuan}</td>
-                <td class="px-4 py-4 text-[10px] uppercase">${i['Nama Line']}<br><span class="text-slate-400">${i['Nama Mesin']}</span></td>
-                <td class="px-4 py-4">
+                <td class="px-4 py-5">
+                    <div class="text-[10px] font-black text-indigo-600 uppercase">PIC: ${i['PIC Order'] || '-'}</div>
+                    <div class="text-[10px] text-slate-500 leading-tight mt-1 max-w-xs">${i['Detail Pesanan'] || '-'}</div>
+                </td>
+                <td class="px-4 py-5 text-center font-black text-slate-800">${i['Quantity Order']} ${i.Satuan}</td>
+                <td class="px-4 py-5 text-[10px] uppercase font-bold text-slate-500">
+                    ${i['Nama Line']}<br><span class="text-slate-300 font-normal italic text-[9px]">${i['Nama Mesin']}</span>
+                </td>
+                <td class="px-4 py-5">
                     <span class="text-[9px] font-black px-2 py-1 rounded-lg ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} uppercase">
                         ${i.Status || 'Pending'}
                     </span>
+                    <div class="text-[8px] text-slate-400 mt-1 font-mono">${i.PR ? 'PR:'+i.PR : ''}</div>
                 </td>
-                <td class="px-4 py-4 text-center">
-                    ${canEdit ? `<button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Edit</button>` : '-'}
+                <td class="px-4 py-5 text-center">
+                    ${canEdit ? `<button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">Edit</button>` : '<span class="text-[8px] text-slate-300 italic font-bold">LOCKED</span>'}
                 </td>
             </tr>
         `;
@@ -90,7 +101,15 @@ window.openModal = (id) => {
     document.getElementById('edit-line').value = item['Nama Line'];
     document.getElementById('edit-detail-pesanan').value = item['Detail Pesanan'] || '';
     
-    document.getElementById('admin-fields').classList.toggle('hidden', !isAdmin);
+    const adminFields = document.getElementById('admin-fields');
+    adminFields.classList.toggle('hidden', !isAdmin);
+    
+    if(isAdmin) {
+        document.getElementById('edit-pr').value = item.PR || '';
+        document.getElementById('edit-po').value = item.PO || '';
+        document.getElementById('edit-status').value = item.Status || 'Pending';
+    }
+
     document.getElementById('modal-edit').classList.remove('hidden');
 };
 
@@ -115,8 +134,18 @@ window.saveUpdate = async () => {
     }
 
     const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
-    if (!error) { window.closeModal(); fetchOrders(); }
+    if (!error) { 
+        window.closeModal(); 
+        fetchOrders(); 
+    } else { alert("Gagal Update: " + error.message); }
 };
 
 window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
+window.exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(localData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Database");
+    XLSX.writeFile(wb, "Report_Sparepart.xlsx");
+};
+
 checkSession();
