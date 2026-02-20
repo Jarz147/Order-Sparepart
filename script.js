@@ -38,7 +38,7 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'Satuan': document.getElementById('satuan').value,
         'Nama Mesin': document.getElementById('nama_mesin').value,
         'Nama Line': document.getElementById('nama_line').value,
-        'PIC Order': document.getElementById('pic_order').value, // PIC ORDER DISIMPAN DISINI
+        'PIC Order': document.getElementById('pic_order').value,
         'Detail Pesanan': document.getElementById('detail_pesanan').value,
         'Status': 'Pending',
         'User Email': currentEmail
@@ -62,6 +62,9 @@ function renderTable(data) {
         
         return `
             <tr class="border-b hover:bg-slate-50 transition">
+                <td class="px-4 py-5 text-center">
+                    ${canEdit ? `<button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">Edit</button>` : '<span class="text-[8px] text-slate-300 italic font-bold">LOCKED</span>'}
+                </td>
                 <td class="px-4 py-5 text-center text-slate-400 text-xs font-bold">${index + 1}</td>
                 <td class="px-4 py-5">
                     <div class="font-black uppercase text-slate-800 text-xs">${i['Nama Barang']}</div>
@@ -80,9 +83,6 @@ function renderTable(data) {
                         ${i.Status || 'Pending'}
                     </span>
                     <div class="text-[8px] text-slate-400 mt-1 font-mono">${i.PR ? 'PR:'+i.PR : ''}</div>
-                </td>
-                <td class="px-4 py-5 text-center">
-                    ${canEdit ? `<button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">Edit</button>` : '<span class="text-[8px] text-slate-300 italic font-bold">LOCKED</span>'}
                 </td>
             </tr>
         `;
