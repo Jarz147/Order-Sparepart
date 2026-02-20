@@ -8,121 +8,33 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
-// --- FITUR TAMBAH LINE & PIC ---
-window.checkNewLine = function(selectElement) {
-    if (selectElement.value === "ADD_NEW_LINE") {
-        const val = prompt("Masukkan Nama Line Baru:");
-        if (val) {
-            const opt = document.createElement("option");
-            opt.value = val.toUpperCase(); opt.text = val.toUpperCase();
-            opt.selected = true;
-            selectElement.add(opt, selectElement.options[2]);
-        } else { selectElement.value = ""; }
+// --- GLOBAL FUNCTIONS (Didaftarkan ke window agar bisa dipanggil onclick HTML) ---
+window.checkNewLine = (el) => {
+    if(el.value === "ADD_NEW_LINE") {
+        const val = prompt("Nama Line Baru:");
+        if(val) {
+            const opt = new Option(val.toUpperCase(), val.toUpperCase());
+            el.add(opt, 2); el.value = val.toUpperCase();
+        }
     }
 };
 
-window.checkNewPIC = function(selectElement) {
-    if (selectElement.value === "ADD_NEW") {
-        const val = prompt("Masukkan Nama PIC Baru:");
-        if (val) {
-            const opt = document.createElement("option");
-            opt.value = val; opt.text = val;
-            opt.selected = true;
-            selectElement.add(opt, selectElement.options[2]);
-        } else { selectElement.value = ""; }
+window.checkNewPIC = (el) => {
+    if(el.value === "ADD_NEW") {
+        const val = prompt("Nama PIC Baru:");
+        if(val) {
+            const opt = new Option(val, val);
+            el.add(opt, 2); el.value = val;
+        }
     }
 };
 
-// --- AUTH & DATA ---
-async function checkSession() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        window.location.href = 'login.html';
-    } else {
-        currentEmail = session.user.email;
-        document.getElementById('user-display').innerText = `USER: ${currentEmail}`;
-        const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-        document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
-        fetchOrders();
-    }
-}
-
-async function fetchOrders() {
-    const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
-    if (!error) { localData = data; applyFiltersAndSort(); }
-}
-
-// --- SUBMIT ---
-document.getElementById('order-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('btn-submit');
-    btn.innerText = "MENGIRIM..."; btn.disabled = true;
-
-    const file = document.getElementById('foto_barang').files[0];
-    let fotoUrl = null;
-    if (file) {
-        const path = `uploads/${Date.now()}_${file.name}`;
-        await supabase.storage.from('sparepart-images').upload(path, file);
-        fotoUrl = supabase.storage.from('sparepart-images').getPublicUrl(path).data.publicUrl;
-    }
-
-    const payload = {
-        'Nama Barang': document.getElementById('nama_barang').value,
-        'Spesifikasi': document.getElementById('spesifikasi').value,
-        'Detail Pesanan': document.getElementById('detail_pesanan').value,
-        'Quantity Order': parseInt(document.getElementById('qty').value),
-        'Satuan': document.getElementById('satuan').value,
-        'Nama Mesin': document.getElementById('nama_mesin').value,
-        'Nama Line': document.getElementById('nama_line').value,
-        'PIC Order': document.getElementById('pic_order').value,
-        'gambar': fotoUrl,
-        'Status': 'Pending'
-    };
-
-    const { error } = await supabase.from('Order-sparepart').insert([payload]);
-    if (!error) { document.getElementById('order-form').reset(); fetchOrders(); }
-    btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
-});
-
-// --- RENDER ---
-function renderTable(data) {
-    const body = document.getElementById('data-body');
-    body.innerHTML = data.map((i, index) => {
-        const foto = i.gambar ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg cursor-pointer" onclick="window.open('${i.gambar}')">` : '-';
-        return `
-            <tr class="hover:bg-slate-50 border-b border-slate-50">
-                <td class="px-4 py-5 text-center">
-                    <button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">EDIT</button>
-                </td>
-                <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
-                <td class="px-4 py-5 flex justify-center">${foto}</td>
-                <td class="px-6 py-5">
-                    <div class="font-bold text-slate-800 uppercase text-xs">${i['Nama Barang']}</div>
-                    <div class="text-[9px] text-slate-400 italic">${new Date(i.created_at).toLocaleDateString()}</div>
-                </td>
-                <td class="px-6 py-5">
-                    <div class="text-[10px] font-black text-indigo-600 uppercase">PIC: ${i['PIC Order']}</div>
-                    <div class="text-[10px] text-slate-400 italic">${i['Detail Pesanan'] || i.Spesifikasi || '-'}</div>
-                </td>
-                <td class="px-6 py-5 text-center font-black">${i['Quantity Order']} ${i.Satuan}</td>
-                <td class="px-6 py-5">
-                    <div class="text-[10px] font-bold text-slate-600 uppercase">${i['Nama Line']}</div>
-                    <div class="text-[9px] text-slate-300 uppercase">${i['Nama Mesin']}</div>
-                </td>
-                <td class="px-6 py-5 text-center">
-                    <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">${i.Status}</span>
-                    <div class="text-[8px] text-slate-300 mt-1">${i.PR ? 'PR: '+i.PR : ''}</div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-
-// --- LOGIKA EDIT (CORE) ---
+// --- MODAL LOGIC (Kunci Tombol Edit Ada Di Sini) ---
 window.openModal = (id) => {
-    const item = localData.find(i => i.id === id);
+    const item = localData.find(i => i.id == id); // Gunakan == agar ID string/number cocok
     if (!item) return;
 
+    // Masukkan data ke input modal
     document.getElementById('edit-id').value = item.id;
     document.getElementById('edit-nama').value = item['Nama Barang'] || '';
     document.getElementById('edit-spek').value = item['Detail Pesanan'] || item.Spesifikasi || '';
@@ -133,28 +45,38 @@ window.openModal = (id) => {
     document.getElementById('edit-po').value = item.PO || '';
     document.getElementById('edit-status').value = item.Status || 'Pending';
 
+    // Cek Role
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
     const adminArea = document.getElementById('admin-fields-container');
     
     if (!isAdmin) {
-        // Kunci field Admin jika yang login bukan Admin
+        // LOCK FIELD UNTUK USER
         document.getElementById('edit-pr').readOnly = true;
         document.getElementById('edit-po').readOnly = true;
         document.getElementById('edit-status').disabled = true;
-        adminArea.classList.add('opacity-40', 'pointer-events-none');
+        adminArea.style.opacity = "0.4";
+        adminArea.style.pointerEvents = "none";
     } else {
+        // OPEN FIELD UNTUK ADMIN
         document.getElementById('edit-pr').readOnly = false;
         document.getElementById('edit-po').readOnly = false;
         document.getElementById('edit-status').disabled = false;
-        adminArea.classList.remove('opacity-40', 'pointer-events-none');
+        adminArea.style.opacity = "1";
+        adminArea.style.pointerEvents = "auto";
     }
+
     document.getElementById('modal-edit').classList.remove('hidden');
+};
+
+window.closeModal = () => {
+    document.getElementById('modal-edit').classList.add('hidden');
 };
 
 window.saveUpdate = async () => {
     const id = document.getElementById('edit-id').value;
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
+    // Data Item (User & Admin bisa ubah ini)
     const updateData = {
         'Nama Barang': document.getElementById('edit-nama').value,
         'Detail Pesanan': document.getElementById('edit-spek').value,
@@ -162,6 +84,7 @@ window.saveUpdate = async () => {
         'Satuan': document.getElementById('edit-satuan').value,
     };
 
+    // Jika Admin, tambahkan Status/PR/PO ke database
     if (isAdmin) {
         updateData['PR'] = document.getElementById('edit-pr').value;
         updateData['PO'] = document.getElementById('edit-po').value;
@@ -169,25 +92,83 @@ window.saveUpdate = async () => {
     }
 
     const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
-    if (!error) { window.closeModal(); fetchOrders(); }
-    else { alert("Gagal Simpan: " + error.message); }
+    if (!error) {
+        window.closeModal();
+        fetchOrders();
+    } else {
+        alert("Error: " + error.message);
+    }
 };
 
-window.closeModal = () => document.getElementById('modal-edit').classList.add('hidden');
-
-// --- UTILS ---
-function applyFiltersAndSort() {
-    const term = document.getElementById('search-input').value.toLowerCase();
-    let filtered = localData.filter(i => i['Nama Barang']?.toLowerCase().includes(term) || i['PIC Order']?.toLowerCase().includes(term));
-    renderTable(filtered);
+// --- DATA FETCHING ---
+async function fetchOrders() {
+    const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
+    if (!error) {
+        localData = data;
+        renderTable(data);
+    }
 }
-document.getElementById('search-input').addEventListener('input', applyFiltersAndSort);
-window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
-window.exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(localData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Data");
-    XLSX.writeFile(wb, "Report.xlsx");
-};
 
-checkSession();
+function renderTable(data) {
+    const body = document.getElementById('data-body');
+    body.innerHTML = data.map((i, idx) => `
+        <tr class="border-b hover:bg-slate-50 transition-all">
+            <td class="px-6 py-4 text-center">
+                <button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white">EDIT</button>
+            </td>
+            <td class="px-6 py-4">
+                <div class="font-bold text-slate-800 uppercase text-xs">${i['Nama Barang']}</div>
+                <div class="text-[9px] text-slate-400">${new Date(i.created_at).toLocaleDateString()}</div>
+            </td>
+            <td class="px-6 py-4">
+                <div class="text-[10px] font-black text-indigo-600 uppercase">PIC: ${i['PIC Order']}</div>
+                <div class="text-[10px] text-slate-400 italic">${i['Detail Pesanan'] || '-'}</div>
+            </td>
+            <td class="px-6 py-4 text-center font-bold">${i['Quantity Order']} ${i.Satuan}</td>
+            <td class="px-6 py-4 text-center">
+                <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">
+                    ${i.Status}
+                </span>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// --- INITIALIZE ---
+async function init() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        window.location.href = 'login.html';
+    } else {
+        currentEmail = session.user.email;
+        document.getElementById('user-display').innerText = `USER: ${currentEmail}`;
+        fetchOrders();
+    }
+}
+
+document.getElementById('order-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit');
+    btn.innerText = "MENGIRIM..."; btn.disabled = true;
+
+    const payload = {
+        'Nama Barang': document.getElementById('nama_barang').value,
+        'Spesifikasi': document.getElementById('spesifikasi').value,
+        'Detail Pesanan': document.getElementById('detail_pesanan').value,
+        'Quantity Order': parseInt(document.getElementById('qty').value),
+        'Satuan': document.getElementById('satuan').value,
+        'Nama Mesin': document.getElementById('nama_mesin').value,
+        'Nama Line': document.getElementById('nama_line').value,
+        'PIC Order': document.getElementById('pic_order').value,
+        'Status': 'Pending'
+    };
+
+    const { error } = await supabase.from('Order-sparepart').insert([payload]);
+    if (!error) {
+        document.getElementById('order-form').reset();
+        fetchOrders();
+    }
+    btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
+});
+
+init();
