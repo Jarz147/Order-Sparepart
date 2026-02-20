@@ -8,56 +8,36 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
-// --- SESSION CHECK ---
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        window.location.href = 'login.html';
-    } else {
+    if (!session) { window.location.href = 'login.html'; } 
+    else {
         currentEmail = session.user.email;
         document.getElementById('user-display').innerText = `User: ${currentEmail}`;
         const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
-        document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
         fetchOrders();
     }
 }
 
 async function fetchOrders() {
-    const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
-    if (!error) { 
-        localData = data; 
-        applyFiltersAndSort(); 
-    }
+    const { data, error } = await supabase.from('Order-sparepart').select('*');
+    if (!error) { localData = data; applyFiltersAndSort(); }
 }
 
-// --- FUNGSI UPLOAD FOTO KE STORAGE ---
 async function uploadFile(file) {
     if (!file) return null;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `uploads/${fileName}`;
-
-    const { data, error } = await supabase.storage
-        .from('sparepart-images')
-        .upload(filePath, file);
-
-    if (error) {
-        console.error("Gagal upload:", error);
-        return null;
-    }
-    
-    const { data: publicData } = supabase.storage.from('sparepart-images').getPublicUrl(filePath);
-    return publicData.publicUrl;
+    const fileName = `${Date.now()}_${file.name}`;
+    const { data, error } = await supabase.storage.from('sparepart-images').upload(fileName, file);
+    if (error) return null;
+    return supabase.storage.from('sparepart-images').getPublicUrl(fileName).data.publicUrl;
 }
 
-// --- SUBMIT FORM ---
 document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
-    btn.innerText = "MENGIRIM..."; btn.disabled = true;
+    btn.innerText = "SEDANG MENGIRIM..."; btn.disabled = true;
 
-    // Proses Upload
     const fileInput = document.getElementById('foto_barang');
     const fotoUrl = await uploadFile(fileInput.files[0]);
 
@@ -70,55 +50,35 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'Nama Line': document.getElementById('nama_line').value,
         'PIC Order': document.getElementById('pic_order').value,
         'gambar': fotoUrl,
-        'Status': 'Pending'
+        'Status': 'Pending',
+        'User Email': currentEmail // Pastikan ada kolom ini di Supabase untuk identifikasi pemilik
     };
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
-    if (error) alert("Error: " + error.message); 
-    else { 
-        document.getElementById('order-form').reset(); 
-        fetchOrders(); 
-    }
+    if (error) alert(error.message); else { document.getElementById('order-form').reset(); fetchOrders(); }
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
 
-// --- FITUR SORT & FILTER ---
 function applyFiltersAndSort() {
     const term = document.getElementById('search-input')?.value.toLowerCase() || "";
-    const sortCriteria = document.getElementById('sort-select')?.value || "newest";
+    const sort = document.getElementById('sort-select')?.value || "newest";
 
     let filtered = localData.filter(i => 
         (i['Nama Barang']?.toLowerCase().includes(term)) || 
-        (i['Nama Mesin']?.toLowerCase().includes(term)) ||
         (i['PIC Order']?.toLowerCase().includes(term)) ||
-        (i['Status']?.toLowerCase().includes(term))
+        (i.Status?.toLowerCase().includes(term))
     );
 
-    switch (sortCriteria) {
-        case 'newest':
-            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            break;
-        case 'oldest':
-            filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-            break;
-        case 'status':
-            filtered.sort((a, b) => (a.Status || "").localeCompare(b.Status || ""));
-            break;
-        case 'line':
-            filtered.sort((a, b) => (a['Nama Line'] || "").localeCompare(b['Nama Line'] || ""));
-            break;
-        case 'pic':
-            filtered.sort((a, b) => (a['PIC Order'] || "").localeCompare(b['PIC Order'] || ""));
-            break;
-        case 'urutan':
-            filtered.sort((a, b) => (a['Nama Barang'] || "").localeCompare(b['Nama Barang'] || ""));
-            break;
-    }
+    if (sort === 'newest') filtered.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    if (sort === 'oldest') filtered.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    if (sort === 'status') filtered.sort((a,b) => a.Status.localeCompare(b.Status));
+    if (sort === 'line') filtered.sort((a,b) => a['Nama Line'].localeCompare(b['Nama Line']));
+    if (sort === 'pic') filtered.sort((a,b) => a['PIC Order'].localeCompare(b['PIC Order']));
+    if (sort === 'urutan') filtered.sort((a,b) => a['Nama Barang'].localeCompare(b['Nama Barang']));
 
     renderTable(filtered);
 }
 
-// --- RENDER TABEL ---
 function renderTable(data) {
     const body = document.getElementById('data-body');
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
@@ -128,15 +88,20 @@ function renderTable(data) {
             ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
             : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300 italic">No Pic</div>`;
 
+        // User hanya bisa edit pesanan milik sendiri dan statusnya masih 'Pending'
+        const canUserEdit = i['User Email'] === currentEmail && i.Status === 'Pending';
+
         return `
             <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
                 <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
                 <td class="px-4 py-5 flex justify-center">${fotoHtml}</td>
-                <td class="px-6 py-5 text-[10px] text-slate-400 font-mono text-center">${new Date(i.created_at).toLocaleDateString('id-ID')}</td>
                 <td class="px-6 py-5">
                     <div class="text-slate-800 font-bold text-sm uppercase">${i['Nama Barang']}</div>
                     <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
-                    <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
+                </td>
+                <td class="px-6 py-5">
+                    <div class="text-[10px] font-black text-indigo-500 uppercase">Tgl: ${new Date(i.created_at).toLocaleDateString()}</div>
+                    <div class="text-[10px] text-slate-500">PIC: ${i['PIC Order']}</div>
                 </td>
                 <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
                 <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
@@ -148,51 +113,62 @@ function renderTable(data) {
                     </span>
                 </td>
                 <td class="px-6 py-5 text-center">
-                    ${isAdmin ? `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">Edit</button>` : '<span class="text-[8px] text-slate-300 font-bold">VIEW</span>'}
+                    ${(isAdmin || canUserEdit) ? 
+                        `<button onclick="window.openModal('${i.id}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold">Edit</button>` 
+                        : '<span class="text-[8px] text-slate-300">Locked</span>'}
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-// --- UTILITIES & MODAL ---
+// --- LOGIKA MODAL ---
+window.openModal = (id) => {
+    const item = localData.find(i => i.id == id);
+    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-nama-barang').value = item['Nama Barang'];
+    document.getElementById('edit-spesifikasi').value = item.Spesifikasi;
+    document.getElementById('edit-qty').value = item['Quantity Order'];
+    document.getElementById('edit-satuan').value = item.Satuan;
+    
+    // Tampilkan field admin jika yang buka adalah admin
+    document.getElementById('admin-edit-fields').classList.toggle('hidden', !isAdmin);
+    if(isAdmin) {
+        document.getElementById('edit-pr').value = item.PR || '';
+        document.getElementById('edit-po').value = item.PO || '';
+        document.getElementById('edit-status').value = item.Status || 'Pending';
+    }
+
+    document.getElementById('modal-edit').classList.remove('hidden');
+};
+
+window.closeModal = () => document.getElementById('modal-edit').classList.add('hidden');
+
+window.saveUpdate = async () => {
+    const id = document.getElementById('edit-id').value;
+    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+    const updateData = {
+        'Nama Barang': document.getElementById('edit-nama-barang').value,
+        'Spesifikasi': document.getElementById('edit-spesifikasi').value,
+        'Quantity Order': parseInt(document.getElementById('edit-qty').value),
+        'Satuan': document.getElementById('edit-satuan').value,
+    };
+
+    if (isAdmin) {
+        updateData.PR = document.getElementById('edit-pr').value;
+        updateData.PO = document.getElementById('edit-po').value;
+        updateData.Status = document.getElementById('edit-status').value;
+    }
+
+    const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
+    if (!error) { window.closeModal(); fetchOrders(); } else { alert("Gagal update!"); }
+};
+
+window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
 document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
 document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
-
-window.openModal = (id, pr, po, status) => {
-    document.getElementById('edit-id').value = id;
-    document.getElementById('edit-pr').value = pr;
-    document.getElementById('edit-po').value = po;
-    document.getElementById('edit-status').value = status;
-    document.getElementById('modal-admin')?.classList.remove('hidden');
-};
-window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
-
-window.saveAdminUpdate = async () => {
-    const id = document.getElementById('edit-id').value;
-    const { error } = await supabase.from('Order-sparepart').update({
-        'PR': document.getElementById('edit-pr').value,
-        'PO': document.getElementById('edit-po').value,
-        'Status': document.getElementById('edit-status').value
-    }).eq('id', id);
-    if (!error) { 
-        window.closeModal(); 
-        fetchOrders(); 
-    } else { 
-        alert("Gagal update data!"); 
-    }
-};
-
-window.logout = async () => { 
-    await supabase.auth.signOut(); 
-    window.location.href = 'login.html'; 
-};
-
-window.exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(localData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, "Sparepart_Report.xlsx");
-};
 
 checkSession();
