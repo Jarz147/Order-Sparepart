@@ -8,12 +8,11 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
-// --- FITUR TAMBAH DROPDOWN ---
+// --- DROPDOWN HELPERS ---
 window.checkNewLine = (el) => {
     if(el.value === "ADD_NEW_LINE") {
         const val = prompt("Nama Line Baru:");
         if(val) { el.add(new Option(val.toUpperCase(), val.toUpperCase()), 2); el.value = val.toUpperCase(); }
-        else { el.value = ""; }
     }
 };
 
@@ -21,11 +20,10 @@ window.checkNewPIC = (el) => {
     if(el.value === "ADD_NEW") {
         const val = prompt("Nama PIC Baru:");
         if(val) { el.add(new Option(val, val), 2); el.value = val; }
-        else { el.value = ""; }
     }
 };
 
-// --- DATA FETCHING ---
+// --- FETCH & RENDER ---
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
     if (!error) { localData = data; renderTable(data); }
@@ -38,19 +36,20 @@ function renderTable(data) {
         return `
         <tr class="border-b hover:bg-slate-50 transition-all">
             <td class="px-4 py-5 text-center">
-                <button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all shadow-sm">EDIT</button>
+                <button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">EDIT</button>
             </td>
             <td class="px-4 py-5 text-center">
                 <span class="font-mono text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold">#${orderID}</span>
             </td>
             <td class="px-4 py-5 text-center">
-                ${i.gambar ? `<img src="${i.gambar}" class="img-preview mx-auto shadow-sm" onclick="window.open('${i.gambar}')">` : '<span class="text-[8px] text-slate-300 italic">No Pic</span>'}
+                ${i.gambar ? `<img src="${i.gambar}" class="img-preview mx-auto" onclick="window.open('${i.gambar}')">` : '<span class="text-[8px] text-slate-300 italic uppercase">No Foto</span>'}
             </td>
             <td class="px-6 py-5">
                 <div class="font-bold text-slate-800 uppercase text-xs leading-tight">${i['Nama Barang']}</div>
-                <div class="text-[10px] text-slate-400 italic mt-1 leading-relaxed">
-                    <span class="text-indigo-400 font-bold">Detail:</span> ${i['Detail Pesanan'] || i.Spesifikasi || '-'}
-                </div>
+                <div class="text-[9px] text-slate-400 mt-1 uppercase font-semibold">${i.Spesifikasi || '-'}</div>
+            </td>
+            <td class="px-6 py-5">
+                <div class="text-[10px] text-slate-500 italic leading-relaxed bg-slate-50 p-2 rounded-lg border border-slate-100">${i['Detail Pesanan'] || '-'}</div>
             </td>
             <td class="px-4 py-5 text-center font-black text-slate-700">${i['Quantity Order']} ${i.Satuan}</td>
             <td class="px-6 py-5">
@@ -63,14 +62,13 @@ function renderTable(data) {
                     i.Status === 'On Process' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}">
                     ${i.Status || 'Pending'}
                 </span>
-                ${i.PR ? `<div class="text-[8px] text-slate-400 mt-1 font-bold">PR: ${i.PR}</div>` : ''}
             </td>
         </tr>
     `}).join('');
 }
 
-// --- LOGIKA UPLOAD & SUBMIT ---
-async function uploadToSupabase(file) {
+// --- SUBMIT LOGIC ---
+async function uploadImg(file) {
     if(!file) return null;
     const path = `uploads/${Date.now()}_${file.name}`;
     const { error } = await supabase.storage.from('sparepart-images').upload(path, file);
@@ -81,10 +79,9 @@ async function uploadToSupabase(file) {
 document.getElementById('order-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
-    btn.innerText = "MENGIRIM..."; btn.disabled = true;
+    btn.innerText = "MENGUPLOAD..."; btn.disabled = true;
 
-    const file = document.getElementById('foto_barang').files[0];
-    const fotoUrl = await uploadToSupabase(file);
+    const fotoUrl = await uploadImg(document.getElementById('foto_barang').files[0]);
 
     const payload = {
         'Nama Barang': document.getElementById('nama_barang').value,
@@ -104,14 +101,15 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
 
-// --- MODAL EDIT CORE ---
+// --- EDIT LOGIC ---
 window.openModal = (id) => {
     const item = localData.find(i => i.id == id);
     if (!item) return;
 
     document.getElementById('edit-id').value = item.id;
     document.getElementById('edit-nama').value = item['Nama Barang'] || '';
-    document.getElementById('edit-spek').value = item['Detail Pesanan'] || '';
+    document.getElementById('edit-spesifikasi').value = item.Spesifikasi || '';
+    document.getElementById('edit-detail').value = item['Detail Pesanan'] || '';
     document.getElementById('edit-qty').value = item['Quantity Order'] || 0;
     document.getElementById('edit-satuan').value = item.Satuan || 'PCS';
     document.getElementById('edit-pr').value = item.PR || '';
@@ -145,7 +143,8 @@ window.saveUpdate = async () => {
 
     const updateData = {
         'Nama Barang': document.getElementById('edit-nama').value,
-        'Detail Pesanan': document.getElementById('edit-spek').value,
+        'Spesifikasi': document.getElementById('edit-spesifikasi').value,
+        'Detail Pesanan': document.getElementById('edit-detail').value,
         'Quantity Order': parseInt(document.getElementById('edit-qty').value),
         'Satuan': document.getElementById('edit-satuan').value
     };
@@ -160,7 +159,7 @@ window.saveUpdate = async () => {
     if (!error) { window.closeModal(); fetchOrders(); }
 };
 
-// --- INIT ---
+// --- INITIALIZE ---
 (async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { window.location.href = 'login.html'; }
@@ -170,3 +169,5 @@ window.saveUpdate = async () => {
         fetchOrders();
     }
 })();
+
+window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
