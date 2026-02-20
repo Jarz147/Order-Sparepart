@@ -68,8 +68,9 @@
                     <option value="Project">Project</option>
                 </select>
                 
-                <select id="pic_order" required class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
+                <select id="pic_order" required onchange="checkNewPIC(this)" class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
                     <option value="" disabled selected>PILIH PIC REQUEST</option>
+                    <option value="ADD_NEW" class="text-indigo-600 font-bold">+ TAMBAH NAMA BARU</option>
                     <option value="Wawan Gianto">Wawan Gianto</option><option value="Nur Rohmat">Nur Rohmat</option>
                     <option value="Aryo Setioko">Aryo Setioko</option><option value="Budi Irawan">Budi Irawan</option>
                     <option value="Wisnu Ernandi">Wisnu Ernandi</option><option value="Pajar Ardianto">Pajar Ardianto</option>
@@ -109,15 +110,14 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                            <th class="px-4 py-5 text-center">Aksi</th>
                             <th class="px-4 py-5 text-center">No</th>
                             <th class="px-4 py-5 text-center">Foto</th>
-                            <th class="px-6 py-5 text-center">Tgl</th>
-                            <th class="px-6 py-5">Detail Barang</th>
+                            <th class="px-6 py-5">Item, Spek & Tgl</th>
+                            <th class="px-6 py-5">PIC & Detail</th>
                             <th class="px-6 py-5 text-center">Qty</th>
                             <th class="px-6 py-5">Mesin / Line</th>
-                            <th class="px-6 py-5">No. PR/PO</th>
                             <th class="px-6 py-5 text-center">Status</th>
-                            <th class="px-6 py-5 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="data-body" class="divide-y divide-slate-50 text-sm font-semibold text-slate-700"></tbody>
@@ -128,7 +128,7 @@
 
     <div id="modal-admin" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
-            <h3 class="font-black text-slate-800 mb-6 uppercase tracking-tight text-xl text-center">Update Status</h3>
+            <h3 class="font-black text-slate-800 mb-6 uppercase tracking-tight text-xl text-center">Update Dashboard</h3>
             <input type="hidden" id="edit-id">
             <div class="space-y-4">
                 <input type="text" id="edit-pr" placeholder="Nomor PR" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent">
