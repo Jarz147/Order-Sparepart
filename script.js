@@ -8,10 +8,12 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
+// --- SESSION & INIT ---
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; } 
-    else {
+    if (!session) {
+        window.location.href = 'login.html';
+    } else {
         currentEmail = session.user.email;
         document.getElementById('user-display').innerText = `User: ${currentEmail}`;
         const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
@@ -22,21 +24,26 @@ async function checkSession() {
 
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*');
-    if (!error) { localData = data; applyFiltersAndSort(); }
+    if (!error) { 
+        localData = data; 
+        applyFiltersAndSort(); 
+    }
 }
 
+// --- CORE FUNCTIONS (Upload & Insert) ---
 async function uploadFile(file) {
     if (!file) return null;
     const fileName = `${Date.now()}_${file.name}`;
     const { data, error } = await supabase.storage.from('sparepart-images').upload(fileName, file);
     if (error) return null;
-    return supabase.storage.from('sparepart-images').getPublicUrl(fileName).data.publicUrl;
+    const { data: publicUrl } = supabase.storage.from('sparepart-images').getPublicUrl(fileName);
+    return publicUrl.publicUrl;
 }
 
 document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
-    btn.innerText = "SEDANG MENGIRIM..."; btn.disabled = true;
+    btn.innerText = "MENGIRIM..."; btn.disabled = true;
 
     const fileInput = document.getElementById('foto_barang');
     const fotoUrl = await uploadFile(fileInput.files[0]);
@@ -51,14 +58,19 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'PIC Order': document.getElementById('pic_order').value,
         'gambar': fotoUrl,
         'Status': 'Pending',
-        'User Email': currentEmail // Pastikan ada kolom ini di Supabase untuk identifikasi pemilik
+        'User Email': currentEmail // Simpan email pengirim
     };
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
-    if (error) alert(error.message); else { document.getElementById('order-form').reset(); fetchOrders(); }
+    if (error) alert(error.message); 
+    else { 
+        document.getElementById('order-form').reset(); 
+        fetchOrders(); 
+    }
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
 
+// --- FILTER & SORT LOGIC ---
 function applyFiltersAndSort() {
     const term = document.getElementById('search-input')?.value.toLowerCase() || "";
     const sort = document.getElementById('sort-select')?.value || "newest";
@@ -66,19 +78,23 @@ function applyFiltersAndSort() {
     let filtered = localData.filter(i => 
         (i['Nama Barang']?.toLowerCase().includes(term)) || 
         (i['PIC Order']?.toLowerCase().includes(term)) ||
-        (i.Status?.toLowerCase().includes(term))
+        (i.Status?.toLowerCase().includes(term)) ||
+        (i['Nama Line']?.toLowerCase().includes(term))
     );
 
-    if (sort === 'newest') filtered.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    if (sort === 'oldest') filtered.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-    if (sort === 'status') filtered.sort((a,b) => a.Status.localeCompare(b.Status));
-    if (sort === 'line') filtered.sort((a,b) => a['Nama Line'].localeCompare(b['Nama Line']));
-    if (sort === 'pic') filtered.sort((a,b) => a['PIC Order'].localeCompare(b['PIC Order']));
-    if (sort === 'urutan') filtered.sort((a,b) => a['Nama Barang'].localeCompare(b['Nama Barang']));
+    switch (sort) {
+        case 'newest': filtered.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)); break;
+        case 'oldest': filtered.sort((a,b) => new Date(a.created_at) - new Date(b.created_at)); break;
+        case 'status': filtered.sort((a,b) => a.Status.localeCompare(b.Status)); break;
+        case 'line': filtered.sort((a,b) => a['Nama Line'].localeCompare(b['Nama Line'])); break;
+        case 'pic': filtered.sort((a,b) => a['PIC Order'].localeCompare(b['PIC Order'])); break;
+        case 'urutan': filtered.sort((a,b) => a['Nama Barang'].localeCompare(b['Nama Barang'])); break;
+    }
 
     renderTable(filtered);
 }
 
+// --- RENDER TABLE ---
 function renderTable(data) {
     const body = document.getElementById('data-body');
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
@@ -88,8 +104,8 @@ function renderTable(data) {
             ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
             : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300 italic">No Pic</div>`;
 
-        // User hanya bisa edit pesanan milik sendiri dan statusnya masih 'Pending'
-        const canUserEdit = i['User Email'] === currentEmail && i.Status === 'Pending';
+        // Validasi Edit: Milik sendiri & Masih Pending, ATAU Admin
+        const canEdit = (i['User Email'] === currentEmail && i.Status === 'Pending') || isAdmin;
 
         return `
             <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
@@ -100,8 +116,8 @@ function renderTable(data) {
                     <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
                 </td>
                 <td class="px-6 py-5">
-                    <div class="text-[10px] font-black text-indigo-500 uppercase">Tgl: ${new Date(i.created_at).toLocaleDateString()}</div>
-                    <div class="text-[10px] text-slate-500">PIC: ${i['PIC Order']}</div>
+                    <div class="text-[10px] font-black text-indigo-500 uppercase">${new Date(i.created_at).toLocaleDateString()}</div>
+                    <div class="text-[9px] text-slate-400 italic">Oleh: ${i['PIC Order']}</div>
                 </td>
                 <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
                 <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
@@ -113,18 +129,20 @@ function renderTable(data) {
                     </span>
                 </td>
                 <td class="px-6 py-5 text-center">
-                    ${(isAdmin || canUserEdit) ? 
-                        `<button onclick="window.openModal('${i.id}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold">Edit</button>` 
-                        : '<span class="text-[8px] text-slate-300">Locked</span>'}
+                    ${canEdit ? 
+                        `<button onclick="window.openModal('${i.id}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg font-black text-[10px] hover:bg-indigo-100 uppercase transition-all">Edit</button>` 
+                        : `<span class="text-[8px] text-slate-300 font-bold uppercase italic">Locked</span>`}
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-// --- LOGIKA MODAL ---
+// --- MODAL ACTIONS ---
 window.openModal = (id) => {
     const item = localData.find(i => i.id == id);
+    if (!item) return;
+
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
     
     document.getElementById('edit-id').value = id;
@@ -133,14 +151,15 @@ window.openModal = (id) => {
     document.getElementById('edit-qty').value = item['Quantity Order'];
     document.getElementById('edit-satuan').value = item.Satuan;
     
-    // Tampilkan field admin jika yang buka adalah admin
+    // UI Admin
     document.getElementById('admin-edit-fields').classList.toggle('hidden', !isAdmin);
-    if(isAdmin) {
+    if (isAdmin) {
         document.getElementById('edit-pr').value = item.PR || '';
         document.getElementById('edit-po').value = item.PO || '';
         document.getElementById('edit-status').value = item.Status || 'Pending';
     }
 
+    document.getElementById('modal-title').innerText = isAdmin ? "Admin Control" : "Edit Pesanan";
     document.getElementById('modal-edit').classList.remove('hidden');
 };
 
@@ -164,10 +183,23 @@ window.saveUpdate = async () => {
     }
 
     const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
-    if (!error) { window.closeModal(); fetchOrders(); } else { alert("Gagal update!"); }
+    if (!error) { 
+        window.closeModal(); 
+        fetchOrders(); 
+    } else { 
+        alert("Gagal update data!"); 
+    }
 };
 
+// --- LOGOUT & UTILS ---
 window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
+window.exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(localData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sparepart");
+    XLSX.writeFile(wb, "Report_Sparepart.xlsx");
+};
+
 document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
 document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
 
