@@ -8,46 +8,39 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
-// --- TAMBAH LINE BARU ---
+// --- FITUR TAMBAH LINE & PIC ---
 window.checkNewLine = function(selectElement) {
     if (selectElement.value === "ADD_NEW_LINE") {
-        const newLine = prompt("Masukkan Nama Line Baru:");
-        if (newLine && newLine.trim() !== "") {
-            const formattedLine = newLine.trim().toUpperCase();
-            const newOption = document.createElement("option");
-            newOption.value = formattedLine;
-            newOption.text = formattedLine;
-            newOption.selected = true;
-            selectElement.add(newOption, selectElement.options[2]);
+        const val = prompt("Masukkan Nama Line Baru:");
+        if (val) {
+            const opt = document.createElement("option");
+            opt.value = val.toUpperCase(); opt.text = val.toUpperCase();
+            opt.selected = true;
+            selectElement.add(opt, selectElement.options[2]);
         } else { selectElement.value = ""; }
     }
 };
 
-// --- TAMBAH PIC BARU ---
 window.checkNewPIC = function(selectElement) {
     if (selectElement.value === "ADD_NEW") {
-        const newName = prompt("Masukkan Nama PIC Request Baru:");
-        if (newName && newName.trim() !== "") {
-            const capitalizedName = newName.trim().split(' ').map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-            ).join(' ');
-            const newOption = document.createElement("option");
-            newOption.value = capitalizedName;
-            newOption.text = capitalizedName;
-            newOption.selected = true;
-            selectElement.add(newOption, selectElement.options[2]);
+        const val = prompt("Masukkan Nama PIC Baru:");
+        if (val) {
+            const opt = document.createElement("option");
+            opt.value = val; opt.text = val;
+            opt.selected = true;
+            selectElement.add(opt, selectElement.options[2]);
         } else { selectElement.value = ""; }
     }
 };
 
-// --- SESSION CHECK ---
+// --- AUTH & DATA ---
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
         window.location.href = 'login.html';
     } else {
         currentEmail = session.user.email;
-        document.getElementById('user-display').innerText = `Active: ${currentEmail}`;
+        document.getElementById('user-display').innerText = `USER: ${currentEmail}`;
         const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
         fetchOrders();
@@ -59,24 +52,19 @@ async function fetchOrders() {
     if (!error) { localData = data; applyFiltersAndSort(); }
 }
 
-// --- UPLOAD FOTO ---
-async function uploadFile(file) {
-    if (!file) return null;
-    const fileName = `${Date.now()}_${file.name}`;
-    const { data, error } = await supabase.storage.from('sparepart-images').upload(`uploads/${fileName}`, file);
-    if (error) return null;
-    const { data: publicData } = supabase.storage.from('sparepart-images').getPublicUrl(`uploads/${fileName}`);
-    return publicData.publicUrl;
-}
-
-// --- SUBMIT FORM ---
+// --- SUBMIT ---
 document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
     btn.innerText = "MENGIRIM..."; btn.disabled = true;
 
-    const fileInput = document.getElementById('foto_barang');
-    const fotoUrl = await uploadFile(fileInput.files[0]);
+    const file = document.getElementById('foto_barang').files[0];
+    let fotoUrl = null;
+    if (file) {
+        const path = `uploads/${Date.now()}_${file.name}`;
+        await supabase.storage.from('sparepart-images').upload(path, file);
+        fotoUrl = supabase.storage.from('sparepart-images').getPublicUrl(path).data.publicUrl;
+    }
 
     const payload = {
         'Nama Barang': document.getElementById('nama_barang').value,
@@ -93,66 +81,52 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
     if (!error) { document.getElementById('order-form').reset(); fetchOrders(); }
-    else { alert("Error: " + error.message); }
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
 
-// --- RENDER TABEL ---
+// --- RENDER ---
 function renderTable(data) {
     const body = document.getElementById('data-body');
     body.innerHTML = data.map((i, index) => {
-        const dateStr = new Date(i.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-        const fotoHtml = i.gambar 
-            ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
-            : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300 italic uppercase">No Pic</div>`;
-
+        const foto = i.gambar ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg cursor-pointer" onclick="window.open('${i.gambar}')">` : '-';
         return `
-            <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
+            <tr class="hover:bg-slate-50 border-b border-slate-50">
                 <td class="px-4 py-5 text-center">
-                    <button onclick="window.openModal('${i.id}')" 
-                        class="bg-white border border-indigo-100 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
-                        EDIT
-                    </button>
+                    <button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">EDIT</button>
                 </td>
                 <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
-                <td class="px-4 py-5 flex justify-center">${fotoHtml}</td>
+                <td class="px-4 py-5 flex justify-center">${foto}</td>
                 <td class="px-6 py-5">
-                    <div class="text-slate-800 font-bold text-sm uppercase leading-tight">${i['Nama Barang']}</div>
-                    <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
-                    <div class="text-[9px] text-indigo-400 font-bold mt-1 uppercase">📅 ${dateStr}</div>
+                    <div class="font-bold text-slate-800 uppercase text-xs">${i['Nama Barang']}</div>
+                    <div class="text-[9px] text-slate-400 italic">${new Date(i.created_at).toLocaleDateString()}</div>
                 </td>
                 <td class="px-6 py-5">
-                    <div class="text-[10px] font-black text-indigo-600 uppercase">PIC: ${i['PIC Order'] || '-'}</div>
-                    <div class="text-[10px] text-slate-400 italic leading-tight mt-0.5">${i['Detail Pesanan'] || '-'}</div>
+                    <div class="text-[10px] font-black text-indigo-600 uppercase">PIC: ${i['PIC Order']}</div>
+                    <div class="text-[10px] text-slate-400 italic">${i['Detail Pesanan'] || i.Spesifikasi || '-'}</div>
                 </td>
-                <td class="px-6 py-5 text-center font-black text-slate-800 text-sm whitespace-nowrap">${i['Quantity Order']} ${i.Satuan}</td>
+                <td class="px-6 py-5 text-center font-black">${i['Quantity Order']} ${i.Satuan}</td>
                 <td class="px-6 py-5">
-                    <div class="text-[10px] font-bold text-slate-600 uppercase tracking-tight">${i['Nama Line']}</div>
-                    <div class="text-[9px] text-slate-300 italic uppercase">${i['Nama Mesin']}</div>
+                    <div class="text-[10px] font-bold text-slate-600 uppercase">${i['Nama Line']}</div>
+                    <div class="text-[9px] text-slate-300 uppercase">${i['Nama Mesin']}</div>
                 </td>
                 <td class="px-6 py-5 text-center">
-                    <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
-                        ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 
-                          i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 
-                          'bg-rose-100 text-rose-700'}">
-                        ${i.Status || 'Waiting'}
-                    </span>
-                    <div class="text-[8px] text-slate-300 mt-1 font-mono">${i.PR ? 'PR: '+i.PR : ''}</div>
+                    <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">${i.Status}</span>
+                    <div class="text-[8px] text-slate-300 mt-1">${i.PR ? 'PR: '+i.PR : ''}</div>
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-// --- MODAL EDIT LOGIC ---
+// --- LOGIKA EDIT (CORE) ---
 window.openModal = (id) => {
     const item = localData.find(i => i.id === id);
     if (!item) return;
 
     document.getElementById('edit-id').value = item.id;
-    document.getElementById('edit-nama').value = item['Nama Barang'];
+    document.getElementById('edit-nama').value = item['Nama Barang'] || '';
     document.getElementById('edit-spek').value = item['Detail Pesanan'] || item.Spesifikasi || '';
-    document.getElementById('edit-qty').value = item['Quantity Order'];
+    document.getElementById('edit-qty').value = item['Quantity Order'] || 0;
     document.getElementById('edit-satuan').value = item.Satuan || 'PCS';
     
     document.getElementById('edit-pr').value = item.PR || '';
@@ -160,20 +134,21 @@ window.openModal = (id) => {
     document.getElementById('edit-status').value = item.Status || 'Pending';
 
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-    const adminFields = document.getElementById('admin-only-fields');
+    const adminArea = document.getElementById('admin-fields-container');
     
     if (!isAdmin) {
+        // Kunci field Admin jika yang login bukan Admin
         document.getElementById('edit-pr').readOnly = true;
         document.getElementById('edit-po').readOnly = true;
         document.getElementById('edit-status').disabled = true;
-        adminFields.classList.add('opacity-40');
+        adminArea.classList.add('opacity-40', 'pointer-events-none');
     } else {
         document.getElementById('edit-pr').readOnly = false;
         document.getElementById('edit-po').readOnly = false;
         document.getElementById('edit-status').disabled = false;
-        adminFields.classList.remove('opacity-40');
+        adminArea.classList.remove('opacity-40', 'pointer-events-none');
     }
-    document.getElementById('modal-edit')?.classList.remove('hidden');
+    document.getElementById('modal-edit').classList.remove('hidden');
 };
 
 window.saveUpdate = async () => {
@@ -195,34 +170,24 @@ window.saveUpdate = async () => {
 
     const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
     if (!error) { window.closeModal(); fetchOrders(); }
-    else { alert("Gagal: " + error.message); }
+    else { alert("Gagal Simpan: " + error.message); }
 };
 
-window.closeModal = () => document.getElementById('modal-edit')?.classList.add('hidden');
+window.closeModal = () => document.getElementById('modal-edit').classList.add('hidden');
 
-// --- UTILITIES ---
+// --- UTILS ---
 function applyFiltersAndSort() {
-    const term = document.getElementById('search-input')?.value.toLowerCase() || "";
-    const sort = document.getElementById('sort-select')?.value || "newest";
-    let filtered = localData.filter(i => 
-        i['Nama Barang']?.toLowerCase().includes(term) || 
-        i['Nama Mesin']?.toLowerCase().includes(term) ||
-        i['PIC Order']?.toLowerCase().includes(term)
-    );
-    if (sort === 'newest') filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    else if (sort === 'oldest') filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const term = document.getElementById('search-input').value.toLowerCase();
+    let filtered = localData.filter(i => i['Nama Barang']?.toLowerCase().includes(term) || i['PIC Order']?.toLowerCase().includes(term));
     renderTable(filtered);
 }
-
-document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
-document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
-
+document.getElementById('search-input').addEventListener('input', applyFiltersAndSort);
 window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
 window.exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(localData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, "Sparepart_Report.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Data");
+    XLSX.writeFile(wb, "Report.xlsx");
 };
 
 checkSession();
