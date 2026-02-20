@@ -19,7 +19,7 @@
         <div class="mb-8 flex flex-col md:flex-row justify-between items-center border-b pb-6 gap-4 relative">
             <div class="flex flex-col w-full md:w-1/3">
                 <h1 class="text-2xl font-black text-slate-800 tracking-tighter">Sparepart <span class="text-indigo-600">Pro</span></h1>
-                <p id="user-display" class="mt-1 text-slate-500 text-[10px] font-bold uppercase italic">Memuat...</p>
+                <p id="user-display" class="mt-1 text-slate-500 text-[10px] font-bold uppercase italic italic">Memuat...</p>
             </div>
             <img src="TEST 1 C.png" alt="Logo" class="h-14 w-auto cursor-pointer hover:opacity-80 transition" onclick="location.reload()"> 
             <div class="flex gap-2 w-full md:w-1/3 justify-end">
@@ -51,8 +51,9 @@
                     <option value="Bending">Bending</option><option value="Spinning">Spinning</option>
                 </select>
 
-                <select id="pic_order" required class="px-5 py-3 bg-slate-50 rounded-2xl outline-none text-[10px] font-black uppercase">
+                <select id="pic_order" required onchange="checkNewPIC(this)" class="px-5 py-3 bg-slate-50 rounded-2xl outline-none text-[10px] font-black uppercase">
                     <option value="" disabled selected>PILIH PIC ORDER</option>
+                    <option value="ADD_NEW" class="text-indigo-600 font-bold">+ TAMBAH NAMA BARU</option>
                     <option value="Deni Andriansa">Deni Andriansa</option>
                     <option value="Wawan Gianto">Wawan Gianto</option>
                     <option value="Nur Rohmat">Nur Rohmat</option>
@@ -82,9 +83,10 @@
                     <thead>
                         <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b">
                             <th class="px-4 py-5 text-center">Aksi</th>
+                            <th class="px-4 py-5 text-center">Foto</th>
                             <th class="px-4 py-5 text-center">No</th>
-                            <th class="px-4 py-5">Item Barang</th>
-                            <th class="px-4 py-5">PIC & Detail Pesanan</th>
+                            <th class="px-4 py-5">Item, Spek & Tanggal</th>
+                            <th class="px-4 py-5">PIC & Detail</th>
                             <th class="px-4 py-5 text-center">Qty</th>
                             <th class="px-4 py-5">Mesin/Line</th>
                             <th class="px-4 py-5">Status</th>
@@ -100,29 +102,23 @@
         <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl relative">
             <h3 class="font-black text-slate-800 mb-6 uppercase text-center text-xl tracking-tighter" id="modal-title">Update Data</h3>
             <input type="hidden" id="edit-id">
-            
             <div class="space-y-4">
                 <div>
                     <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Nama Barang (Read Only)</label>
                     <input type="text" id="edit-nama-barang" disabled class="w-full px-5 py-3 bg-slate-100 rounded-2xl text-slate-400 font-bold border-none">
                 </div>
-
                 <input type="text" id="edit-spesifikasi" placeholder="Edit Spesifikasi" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none border focus:ring-2 focus:ring-indigo-500">
-                
                 <div class="flex gap-2">
                     <input type="number" id="edit-qty" placeholder="Qty" class="w-2/3 px-5 py-3 bg-slate-50 rounded-2xl outline-none border focus:ring-2 focus:ring-indigo-500">
                     <select id="edit-satuan" class="w-1/3 px-2 py-3 bg-slate-50 rounded-2xl outline-none border text-[10px] font-black uppercase">
                         <option value="PCS">Pcs</option><option value="ROLL">Roll</option><option value="SET">Set</option><option value="METER">Meter</option>
                     </select>
                 </div>
-
                 <select id="edit-line" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none border text-[10px] font-black uppercase">
                     <option value="Assy 1">Assy 1</option><option value="Assy 2">Assy 2</option><option value="Assy 3">Assy 3</option>
                     <option value="Bending">Bending</option><option value="Spinning">Spinning</option>
                 </select>
-
                 <textarea id="edit-detail-pesanan" placeholder="Edit Detail Pesanan" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none border h-20 focus:ring-2 focus:ring-indigo-500 text-sm"></textarea>
-
                 <div id="admin-fields" class="hidden pt-4 border-t space-y-4">
                     <div class="grid grid-cols-2 gap-2">
                         <input type="text" id="edit-pr" placeholder="No. PR" class="px-4 py-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-xs">
@@ -133,7 +129,6 @@
                     </select>
                 </div>
             </div>
-
             <div class="flex gap-3 mt-8">
                 <button onclick="window.closeModal()" class="flex-1 py-4 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase">Batal</button>
                 <button onclick="window.saveUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200">Simpan</button>
