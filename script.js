@@ -8,85 +8,62 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
-// --- DROPDOWN HELPERS ---
-window.checkNewLine = (el) => {
-    if(el.value === "ADD_NEW_LINE") {
-        const val = prompt("Nama Line Baru:");
-        if(val) { el.add(new Option(val.toUpperCase(), val.toUpperCase()), 2); el.value = val.toUpperCase(); }
+// --- SESSION CHECK ---
+async function checkSession() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        window.location.href = 'login.html';
+    } else {
+        currentEmail = session.user.email;
+        document.getElementById('user-display').innerText = `User: ${currentEmail}`;
+        const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
+        document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
+        fetchOrders();
     }
-};
+}
 
-window.checkNewPIC = (el) => {
-    if(el.value === "ADD_NEW") {
-        const val = prompt("Nama PIC Baru:");
-        if(val) { el.add(new Option(val, val), 2); el.value = val; }
-    }
-};
-
-// --- FETCH & RENDER ---
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
-    if (!error) { localData = data; renderTable(data); }
+    if (!error) { 
+        localData = data; 
+        applyFiltersAndSort(); 
+    }
 }
 
-function renderTable(data) {
-    const body = document.getElementById('data-body');
-    body.innerHTML = data.map((i, idx) => {
-        const orderID = i.id ? i.id.toString().slice(0, 8).toUpperCase() : '---';
-        return `
-        <tr class="border-b hover:bg-slate-50 transition-all">
-            <td class="px-4 py-5 text-center">
-                <button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">EDIT</button>
-            </td>
-            <td class="px-4 py-5 text-center">
-                <span class="font-mono text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold">#${orderID}</span>
-            </td>
-            <td class="px-4 py-5 text-center">
-                ${i.gambar ? `<img src="${i.gambar}" class="img-preview mx-auto" onclick="window.open('${i.gambar}')">` : '<span class="text-[8px] text-slate-300 italic uppercase">No Foto</span>'}
-            </td>
-            <td class="px-6 py-5">
-                <div class="font-bold text-slate-800 uppercase text-xs leading-tight">${i['Nama Barang']}</div>
-                <div class="text-[9px] text-slate-400 mt-1 uppercase font-semibold">${i.Spesifikasi || '-'}</div>
-            </td>
-            <td class="px-6 py-5">
-                <div class="text-[10px] text-slate-500 italic leading-relaxed bg-slate-50 p-2 rounded-lg border border-slate-100">${i['Detail Pesanan'] || '-'}</div>
-            </td>
-            <td class="px-4 py-5 text-center font-black text-slate-700">${i['Quantity Order']} ${i.Satuan}</td>
-            <td class="px-6 py-5">
-                <div class="text-[10px] font-black text-indigo-600 uppercase">${i['PIC Order']}</div>
-                <div class="text-[9px] text-slate-400 font-bold uppercase">${i['Nama Line']}</div>
-            </td>
-            <td class="px-6 py-5 text-center">
-                <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${
-                    i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 
-                    i.Status === 'On Process' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}">
-                    ${i.Status || 'Pending'}
-                </span>
-            </td>
-        </tr>
-    `}).join('');
+// --- FUNGSI UPLOAD FOTO KE STORAGE ---
+async function uploadFile(file) {
+    if (!file) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
+
+    const { data, error } = await supabase.storage
+        .from('sparepart-images')
+        .upload(filePath, file);
+
+    if (error) {
+        console.error("Gagal upload:", error);
+        return null;
+    }
+    
+    const { data: publicData } = supabase.storage.from('sparepart-images').getPublicUrl(filePath);
+    return publicData.publicUrl;
 }
 
-// --- SUBMIT LOGIC ---
-async function uploadImg(file) {
-    if(!file) return null;
-    const path = `uploads/${Date.now()}_${file.name}`;
-    const { error } = await supabase.storage.from('sparepart-images').upload(path, file);
-    if(error) return null;
-    return supabase.storage.from('sparepart-images').getPublicUrl(path).data.publicUrl;
-}
-
-document.getElementById('order-form').addEventListener('submit', async (e) => {
+// --- SUBMIT FORM ---
+document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
-    btn.innerText = "MENGUPLOAD..."; btn.disabled = true;
+    btn.innerText = "MENGIRIM..."; btn.disabled = true;
 
-    const fotoUrl = await uploadImg(document.getElementById('foto_barang').files[0]);
+    // Proses Upload
+    const fileInput = document.getElementById('foto_barang');
+    const fotoUrl = await uploadFile(fileInput.files[0]);
 
     const payload = {
         'Nama Barang': document.getElementById('nama_barang').value,
         'Spesifikasi': document.getElementById('spesifikasi').value,
-        'Detail Pesanan': document.getElementById('detail_pesanan').value,
         'Quantity Order': parseInt(document.getElementById('qty').value),
         'Satuan': document.getElementById('satuan').value,
         'Nama Mesin': document.getElementById('nama_mesin').value,
@@ -97,77 +74,125 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
     };
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
-    if (!error) { document.getElementById('order-form').reset(); fetchOrders(); }
+    if (error) alert("Error: " + error.message); 
+    else { 
+        document.getElementById('order-form').reset(); 
+        fetchOrders(); 
+    }
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
 
-// --- EDIT LOGIC ---
-window.openModal = (id) => {
-    const item = localData.find(i => i.id == id);
-    if (!item) return;
+// --- FITUR SORT & FILTER ---
+function applyFiltersAndSort() {
+    const term = document.getElementById('search-input')?.value.toLowerCase() || "";
+    const sortCriteria = document.getElementById('sort-select')?.value || "newest";
 
-    document.getElementById('edit-id').value = item.id;
-    document.getElementById('edit-nama').value = item['Nama Barang'] || '';
-    document.getElementById('edit-spesifikasi').value = item.Spesifikasi || '';
-    document.getElementById('edit-detail').value = item['Detail Pesanan'] || '';
-    document.getElementById('edit-qty').value = item['Quantity Order'] || 0;
-    document.getElementById('edit-satuan').value = item.Satuan || 'PCS';
-    document.getElementById('edit-pr').value = item.PR || '';
-    document.getElementById('edit-po').value = item.PO || '';
-    document.getElementById('edit-status').value = item.Status || 'Pending';
+    let filtered = localData.filter(i => 
+        (i['Nama Barang']?.toLowerCase().includes(term)) || 
+        (i['Nama Mesin']?.toLowerCase().includes(term)) ||
+        (i['PIC Order']?.toLowerCase().includes(term)) ||
+        (i['Status']?.toLowerCase().includes(term))
+    );
 
-    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-    const adminArea = document.getElementById('admin-fields-container');
-    
-    if (!isAdmin) {
-        document.getElementById('edit-pr').readOnly = true;
-        document.getElementById('edit-po').readOnly = true;
-        document.getElementById('edit-status').disabled = true;
-        adminArea.style.opacity = "0.3";
-        adminArea.style.pointerEvents = "none";
-    } else {
-        document.getElementById('edit-pr').readOnly = false;
-        document.getElementById('edit-po').readOnly = false;
-        document.getElementById('edit-status').disabled = false;
-        adminArea.style.opacity = "1";
-        adminArea.style.pointerEvents = "auto";
+    switch (sortCriteria) {
+        case 'newest':
+            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            break;
+        case 'oldest':
+            filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            break;
+        case 'status':
+            filtered.sort((a, b) => (a.Status || "").localeCompare(b.Status || ""));
+            break;
+        case 'line':
+            filtered.sort((a, b) => (a['Nama Line'] || "").localeCompare(b['Nama Line'] || ""));
+            break;
+        case 'pic':
+            filtered.sort((a, b) => (a['PIC Order'] || "").localeCompare(b['PIC Order'] || ""));
+            break;
+        case 'urutan':
+            filtered.sort((a, b) => (a['Nama Barang'] || "").localeCompare(b['Nama Barang'] || ""));
+            break;
     }
-    document.getElementById('modal-edit').classList.remove('hidden');
+
+    renderTable(filtered);
+}
+
+// --- RENDER TABEL ---
+function renderTable(data) {
+    const body = document.getElementById('data-body');
+    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+    body.innerHTML = data.map((i, index) => {
+        const fotoHtml = i.gambar 
+            ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
+            : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300 italic">No Pic</div>`;
+
+        return `
+            <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
+                <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
+                <td class="px-4 py-5 flex justify-center">${fotoHtml}</td>
+                <td class="px-6 py-5 text-[10px] text-slate-400 font-mono text-center">${new Date(i.created_at).toLocaleDateString('id-ID')}</td>
+                <td class="px-6 py-5">
+                    <div class="text-slate-800 font-bold text-sm uppercase">${i['Nama Barang']}</div>
+                    <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
+                    <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
+                </td>
+                <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
+                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
+                <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
+                <td class="px-6 py-5 text-center">
+                    <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
+                    ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
+                        ${i.Status || 'Pending'}
+                    </span>
+                </td>
+                <td class="px-6 py-5 text-center">
+                    ${isAdmin ? `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">Edit</button>` : '<span class="text-[8px] text-slate-300 font-bold">VIEW</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- UTILITIES & MODAL ---
+document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
+document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
+
+window.openModal = (id, pr, po, status) => {
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-pr').value = pr;
+    document.getElementById('edit-po').value = po;
+    document.getElementById('edit-status').value = status;
+    document.getElementById('modal-admin')?.classList.remove('hidden');
 };
+window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
 
-window.closeModal = () => document.getElementById('modal-edit').classList.add('hidden');
-
-window.saveUpdate = async () => {
+window.saveAdminUpdate = async () => {
     const id = document.getElementById('edit-id').value;
-    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-
-    const updateData = {
-        'Nama Barang': document.getElementById('edit-nama').value,
-        'Spesifikasi': document.getElementById('edit-spesifikasi').value,
-        'Detail Pesanan': document.getElementById('edit-detail').value,
-        'Quantity Order': parseInt(document.getElementById('edit-qty').value),
-        'Satuan': document.getElementById('edit-satuan').value
-    };
-
-    if (isAdmin) {
-        updateData.PR = document.getElementById('edit-pr').value;
-        updateData.PO = document.getElementById('edit-po').value;
-        updateData.Status = document.getElementById('edit-status').value;
+    const { error } = await supabase.from('Order-sparepart').update({
+        'PR': document.getElementById('edit-pr').value,
+        'PO': document.getElementById('edit-po').value,
+        'Status': document.getElementById('edit-status').value
+    }).eq('id', id);
+    if (!error) { 
+        window.closeModal(); 
+        fetchOrders(); 
+    } else { 
+        alert("Gagal update data!"); 
     }
-
-    const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
-    if (!error) { window.closeModal(); fetchOrders(); }
 };
 
-// --- INITIALIZE ---
-(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; }
-    else {
-        currentEmail = session.user.email;
-        document.getElementById('user-display').innerText = `USER: ${currentEmail}`;
-        fetchOrders();
-    }
-})();
+window.logout = async () => { 
+    await supabase.auth.signOut(); 
+    window.location.href = 'login.html'; 
+};
 
-window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
+window.exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(localData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, "Sparepart_Report.xlsx");
+};
+
+checkSession();
