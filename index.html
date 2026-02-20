@@ -14,7 +14,7 @@
         thead th { position: sticky; top: 0; z-index: 20; background-color: #f8fafc; box-shadow: inset 0 -1px 0 #e2e8f0; }
         .table-container::-webkit-scrollbar { width: 4px; height: 4px; }
         .table-container::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        #modal-admin:not(.hidden) { display: flex; animation: fadeIn 0.2s ease-out; }
+        #modal-edit:not(.hidden) { display: flex; animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -49,6 +49,8 @@
                 <input type="text" id="nama_barang" required placeholder="Nama Barang" class="md:col-span-2 px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
                 <input type="text" id="spesifikasi" placeholder="Spesifikasi" class="md:col-span-2 px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
                 
+                <input type="text" id="detail_pesanan" placeholder="Detail Pesanan (Contoh: Urgent, Untuk Stok, dll)" class="md:col-span-4 px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
+
                 <div class="flex gap-2">
                     <input type="number" id="qty" required placeholder="Qty" class="w-2/3 px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
                     <select id="satuan" required class="w-1/3 px-2 py-3 bg-slate-50 rounded-2xl outline-none text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
@@ -58,8 +60,9 @@
                 
                 <input type="text" id="nama_mesin" required placeholder="Nama Mesin" class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
                 
-                <select id="nama_line" required class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
+                <select id="nama_line" required onchange="checkNewLine(this)" class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
                     <option value="" disabled selected>PILIH LINE</option>
+                    <option value="ADD_NEW_LINE" class="text-indigo-600 font-bold">+ TAMBAH LINE BARU</option>
                     <option value="Assy 1">Assy 1</option><option value="Assy 2">Assy 2</option><option value="Assy 3">Assy 3</option>
                     <option value="Assy 4">Assy 4</option><option value="Assy 5">Assy 5</option><option value="Assy 6">Assy 6</option>
                     <option value="Assy 7">Assy 7</option><option value="Assy 8">Assy 8</option><option value="Assy 9">Assy 9</option>
@@ -71,12 +74,9 @@
                 <select id="pic_order" required onchange="checkNewPIC(this)" class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
                     <option value="" disabled selected>PILIH PIC REQUEST</option>
                     <option value="ADD_NEW" class="text-indigo-600 font-bold">+ TAMBAH NAMA BARU</option>
-                    <option value="Wawan Gianto">Wawan Gianto</option><option value="Nur Rohmat">Nur Rohmat</option>
-                    <option value="Aryo Setioko">Aryo Setioko</option><option value="Budi Irawan">Budi Irawan</option>
-                    <option value="Wisnu Ernandi">Wisnu Ernandi</option><option value="Pajar Ardianto">Pajar Ardianto</option>
-                    <option value="Iwan Prasetyo">Iwan Prasetyo</option><option value="Azkia Rasya Ikbar">Azkia Rasya Ikbar</option>
-                    <option value="Randika Septian">Randika Septian</option><option value="Irwan Bagustian">Irwan Bagustian</option>
                     <option value="Deni Andriansa">Deni Andriansa</option>
+                    <option value="Wawan Gianto">Wawan Gianto</option>
+                    <option value="Nur Rohmat">Nur Rohmat</option>
                 </select>
 
                 <div class="relative">
@@ -90,22 +90,15 @@
             </form>
         </div>
 
-        <div class="mb-6 flex flex-col md:flex-row gap-4">
-            <div class="relative flex-1">
-                <input type="text" id="search-input" placeholder="Cari barang, mesin, PIC, atau status..." class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none text-sm font-semibold italic">
-                <span class="absolute left-4 top-3.5 opacity-30 text-lg">🔍</span>
-            </div>
-            <select id="sort-select" class="h-full px-5 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase text-slate-500 cursor-pointer shadow-sm">
-                <option value="newest">⏰ Terbaru (Newest)</option>
-                <option value="oldest">⌛ Terlama (Oldest)</option>
-                <option value="status">📊 Status (Grup)</option>
-                <option value="line">🏭 Nama Line (A-Z)</option>
-                <option value="pic">👤 PIC Request (A-Z)</option>
-                <option value="urutan">🔠 Urutan Barang (A-Z)</option>
-            </select>
-        </div>
-
         <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b flex flex-col md:flex-row gap-4 bg-slate-50/50">
+                <input type="text" id="search-input" placeholder="Cari barang, mesin, atau PIC..." class="flex-1 px-5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold shadow-sm">
+                <select id="sort-select" class="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase text-slate-500 shadow-sm">
+                    <option value="newest">⏰ Terbaru</option>
+                    <option value="oldest">⌛ Terlama</option>
+                </select>
+            </div>
+
             <div class="table-container">
                 <table class="w-full text-left border-collapse">
                     <thead>
@@ -113,7 +106,7 @@
                             <th class="px-4 py-5 text-center">Aksi</th>
                             <th class="px-4 py-5 text-center">No</th>
                             <th class="px-4 py-5 text-center">Foto</th>
-                            <th class="px-6 py-5">Item, Spek & Tgl</th>
+                            <th class="px-6 py-5">Item & Tgl</th>
                             <th class="px-6 py-5">PIC & Detail</th>
                             <th class="px-6 py-5 text-center">Qty</th>
                             <th class="px-6 py-5">Mesin / Line</th>
@@ -126,22 +119,48 @@
         </div>
     </div>
 
-    <div id="modal-admin" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div id="modal-edit" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
-            <h3 class="font-black text-slate-800 mb-6 uppercase tracking-tight text-xl text-center">Update Dashboard</h3>
+            <h3 class="font-black text-slate-800 mb-6 uppercase tracking-tight text-xl text-center">Update Permintaan</h3>
             <input type="hidden" id="edit-id">
+            
             <div class="space-y-4">
-                <input type="text" id="edit-pr" placeholder="Nomor PR" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent">
-                <input type="text" id="edit-po" placeholder="Nomor PO" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent">
-                <select id="edit-status" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-black uppercase text-xs cursor-pointer border-transparent">
-                    <option value="Pending">Waiting</option>
-                    <option value="On Process">On Process</option>
-                    <option value="Selesai">Done</option>
-                </select>
+                <div>
+                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Nama Barang</label>
+                    <input type="text" id="edit-nama" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent border focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Spesifikasi / Detail</label>
+                    <input type="text" id="edit-spek" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent border focus:border-indigo-500">
+                </div>
+                <div class="flex gap-2">
+                    <div class="w-2/3">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Qty</label>
+                        <input type="number" id="edit-qty" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent border focus:border-indigo-500">
+                    </div>
+                    <div class="w-1/3">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Satuan</label>
+                        <select id="edit-satuan" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-black text-[10px] border-transparent border focus:border-indigo-500">
+                            <option value="PCS">PCS</option><option value="ROLL">ROLL</option><option value="METER">METER</option><option value="SET">SET</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="admin-only-fields" class="pt-4 border-t space-y-4">
+                    <p class="text-[8px] font-black text-indigo-500 uppercase tracking-widest text-center mb-2">Admin Control Area</p>
+                    <input type="text" id="edit-pr" placeholder="Nomor PR" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent border focus:border-indigo-500">
+                    <input type="text" id="edit-po" placeholder="Nomor PO" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent border focus:border-indigo-500">
+                    <select id="edit-status" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-black text-[10px] border-transparent border focus:border-indigo-500">
+                        <option value="Pending">Waiting</option>
+                        <option value="On Process">On Process</option>
+                        <option value="Selesai">Done</option>
+                    </select>
+                </div>
             </div>
+
             <div class="flex gap-3 mt-8">
                 <button onclick="window.closeModal()" class="flex-1 py-4 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase">Batal</button>
-                <button onclick="window.saveAdminUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200">Simpan Update</button>
+                <button onclick="window.saveUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200">Simpan Perubahan</button>
             </div>
         </div>
     </div>
