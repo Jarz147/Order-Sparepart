@@ -8,148 +8,83 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
-// --- GLOBAL FUNCTIONS (Didaftarkan ke window agar bisa dipanggil onclick HTML) ---
+// --- FITUR TAMBAH DROPDOWN ---
 window.checkNewLine = (el) => {
     if(el.value === "ADD_NEW_LINE") {
         const val = prompt("Nama Line Baru:");
-        if(val) {
-            const opt = new Option(val.toUpperCase(), val.toUpperCase());
-            el.add(opt, 2); el.value = val.toUpperCase();
-        }
+        if(val) { el.add(new Option(val.toUpperCase(), val.toUpperCase()), 2); el.value = val.toUpperCase(); }
+        else { el.value = ""; }
     }
 };
 
 window.checkNewPIC = (el) => {
     if(el.value === "ADD_NEW") {
         const val = prompt("Nama PIC Baru:");
-        if(val) {
-            const opt = new Option(val, val);
-            el.add(opt, 2); el.value = val;
-        }
-    }
-};
-
-// --- MODAL LOGIC (Kunci Tombol Edit Ada Di Sini) ---
-window.openModal = (id) => {
-    const item = localData.find(i => i.id == id); // Gunakan == agar ID string/number cocok
-    if (!item) return;
-
-    // Masukkan data ke input modal
-    document.getElementById('edit-id').value = item.id;
-    document.getElementById('edit-nama').value = item['Nama Barang'] || '';
-    document.getElementById('edit-spek').value = item['Detail Pesanan'] || item.Spesifikasi || '';
-    document.getElementById('edit-qty').value = item['Quantity Order'] || 0;
-    document.getElementById('edit-satuan').value = item.Satuan || 'PCS';
-    
-    document.getElementById('edit-pr').value = item.PR || '';
-    document.getElementById('edit-po').value = item.PO || '';
-    document.getElementById('edit-status').value = item.Status || 'Pending';
-
-    // Cek Role
-    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-    const adminArea = document.getElementById('admin-fields-container');
-    
-    if (!isAdmin) {
-        // LOCK FIELD UNTUK USER
-        document.getElementById('edit-pr').readOnly = true;
-        document.getElementById('edit-po').readOnly = true;
-        document.getElementById('edit-status').disabled = true;
-        adminArea.style.opacity = "0.4";
-        adminArea.style.pointerEvents = "none";
-    } else {
-        // OPEN FIELD UNTUK ADMIN
-        document.getElementById('edit-pr').readOnly = false;
-        document.getElementById('edit-po').readOnly = false;
-        document.getElementById('edit-status').disabled = false;
-        adminArea.style.opacity = "1";
-        adminArea.style.pointerEvents = "auto";
-    }
-
-    document.getElementById('modal-edit').classList.remove('hidden');
-};
-
-window.closeModal = () => {
-    document.getElementById('modal-edit').classList.add('hidden');
-};
-
-window.saveUpdate = async () => {
-    const id = document.getElementById('edit-id').value;
-    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-
-    // Data Item (User & Admin bisa ubah ini)
-    const updateData = {
-        'Nama Barang': document.getElementById('edit-nama').value,
-        'Detail Pesanan': document.getElementById('edit-spek').value,
-        'Quantity Order': parseInt(document.getElementById('edit-qty').value),
-        'Satuan': document.getElementById('edit-satuan').value,
-    };
-
-    // Jika Admin, tambahkan Status/PR/PO ke database
-    if (isAdmin) {
-        updateData['PR'] = document.getElementById('edit-pr').value;
-        updateData['PO'] = document.getElementById('edit-po').value;
-        updateData['Status'] = document.getElementById('edit-status').value;
-    }
-
-    const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
-    if (!error) {
-        window.closeModal();
-        fetchOrders();
-    } else {
-        alert("Error: " + error.message);
+        if(val) { el.add(new Option(val, val), 2); el.value = val; }
+        else { el.value = ""; }
     }
 };
 
 // --- DATA FETCHING ---
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
-    if (!error) {
-        localData = data;
-        renderTable(data);
-    }
+    if (!error) { localData = data; renderTable(data); }
 }
 
 function renderTable(data) {
     const body = document.getElementById('data-body');
-    body.innerHTML = data.map((i, idx) => `
+    body.innerHTML = data.map((i, idx) => {
+        const orderID = i.id ? i.id.toString().slice(0, 8).toUpperCase() : '---';
+        return `
         <tr class="border-b hover:bg-slate-50 transition-all">
-            <td class="px-6 py-4 text-center">
-                <button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white">EDIT</button>
+            <td class="px-4 py-5 text-center">
+                <button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all shadow-sm">EDIT</button>
             </td>
-            <td class="px-6 py-4">
-                <div class="font-bold text-slate-800 uppercase text-xs">${i['Nama Barang']}</div>
-                <div class="text-[9px] text-slate-400">${new Date(i.created_at).toLocaleDateString()}</div>
+            <td class="px-4 py-5 text-center">
+                <span class="font-mono text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold">#${orderID}</span>
             </td>
-            <td class="px-6 py-4">
-                <div class="text-[10px] font-black text-indigo-600 uppercase">PIC: ${i['PIC Order']}</div>
-                <div class="text-[10px] text-slate-400 italic">${i['Detail Pesanan'] || '-'}</div>
+            <td class="px-4 py-5 text-center">
+                ${i.gambar ? `<img src="${i.gambar}" class="img-preview mx-auto shadow-sm" onclick="window.open('${i.gambar}')">` : '<span class="text-[8px] text-slate-300 italic">No Pic</span>'}
             </td>
-            <td class="px-6 py-4 text-center font-bold">${i['Quantity Order']} ${i.Satuan}</td>
-            <td class="px-6 py-4 text-center">
-                <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">
-                    ${i.Status}
+            <td class="px-6 py-5">
+                <div class="font-bold text-slate-800 uppercase text-xs leading-tight">${i['Nama Barang']}</div>
+                <div class="text-[10px] text-slate-400 italic mt-1 leading-relaxed">
+                    <span class="text-indigo-400 font-bold">Detail:</span> ${i['Detail Pesanan'] || i.Spesifikasi || '-'}
+                </div>
+            </td>
+            <td class="px-4 py-5 text-center font-black text-slate-700">${i['Quantity Order']} ${i.Satuan}</td>
+            <td class="px-6 py-5">
+                <div class="text-[10px] font-black text-indigo-600 uppercase">${i['PIC Order']}</div>
+                <div class="text-[9px] text-slate-400 font-bold uppercase">${i['Nama Line']}</div>
+            </td>
+            <td class="px-6 py-5 text-center">
+                <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${
+                    i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 
+                    i.Status === 'On Process' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}">
+                    ${i.Status || 'Pending'}
                 </span>
+                ${i.PR ? `<div class="text-[8px] text-slate-400 mt-1 font-bold">PR: ${i.PR}</div>` : ''}
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
-// --- INITIALIZE ---
-async function init() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        window.location.href = 'login.html';
-    } else {
-        currentEmail = session.user.email;
-        document.getElementById('user-display').innerText = `USER: ${currentEmail}`;
-        fetchOrders();
-    }
+// --- LOGIKA UPLOAD & SUBMIT ---
+async function uploadToSupabase(file) {
+    if(!file) return null;
+    const path = `uploads/${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from('sparepart-images').upload(path, file);
+    if(error) return null;
+    return supabase.storage.from('sparepart-images').getPublicUrl(path).data.publicUrl;
 }
 
 document.getElementById('order-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
     btn.innerText = "MENGIRIM..."; btn.disabled = true;
+
+    const file = document.getElementById('foto_barang').files[0];
+    const fotoUrl = await uploadToSupabase(file);
 
     const payload = {
         'Nama Barang': document.getElementById('nama_barang').value,
@@ -160,15 +95,78 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
         'Nama Mesin': document.getElementById('nama_mesin').value,
         'Nama Line': document.getElementById('nama_line').value,
         'PIC Order': document.getElementById('pic_order').value,
+        'gambar': fotoUrl,
         'Status': 'Pending'
     };
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
-    if (!error) {
-        document.getElementById('order-form').reset();
-        fetchOrders();
-    }
+    if (!error) { document.getElementById('order-form').reset(); fetchOrders(); }
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
 
-init();
+// --- MODAL EDIT CORE ---
+window.openModal = (id) => {
+    const item = localData.find(i => i.id == id);
+    if (!item) return;
+
+    document.getElementById('edit-id').value = item.id;
+    document.getElementById('edit-nama').value = item['Nama Barang'] || '';
+    document.getElementById('edit-spek').value = item['Detail Pesanan'] || '';
+    document.getElementById('edit-qty').value = item['Quantity Order'] || 0;
+    document.getElementById('edit-satuan').value = item.Satuan || 'PCS';
+    document.getElementById('edit-pr').value = item.PR || '';
+    document.getElementById('edit-po').value = item.PO || '';
+    document.getElementById('edit-status').value = item.Status || 'Pending';
+
+    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const adminArea = document.getElementById('admin-fields-container');
+    
+    if (!isAdmin) {
+        document.getElementById('edit-pr').readOnly = true;
+        document.getElementById('edit-po').readOnly = true;
+        document.getElementById('edit-status').disabled = true;
+        adminArea.style.opacity = "0.3";
+        adminArea.style.pointerEvents = "none";
+    } else {
+        document.getElementById('edit-pr').readOnly = false;
+        document.getElementById('edit-po').readOnly = false;
+        document.getElementById('edit-status').disabled = false;
+        adminArea.style.opacity = "1";
+        adminArea.style.pointerEvents = "auto";
+    }
+    document.getElementById('modal-edit').classList.remove('hidden');
+};
+
+window.closeModal = () => document.getElementById('modal-edit').classList.add('hidden');
+
+window.saveUpdate = async () => {
+    const id = document.getElementById('edit-id').value;
+    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+    const updateData = {
+        'Nama Barang': document.getElementById('edit-nama').value,
+        'Detail Pesanan': document.getElementById('edit-spek').value,
+        'Quantity Order': parseInt(document.getElementById('edit-qty').value),
+        'Satuan': document.getElementById('edit-satuan').value
+    };
+
+    if (isAdmin) {
+        updateData.PR = document.getElementById('edit-pr').value;
+        updateData.PO = document.getElementById('edit-po').value;
+        updateData.Status = document.getElementById('edit-status').value;
+    }
+
+    const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
+    if (!error) { window.closeModal(); fetchOrders(); }
+};
+
+// --- INIT ---
+(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; }
+    else {
+        currentEmail = session.user.email;
+        document.getElementById('user-display').innerText = `USER: ${currentEmail}`;
+        fetchOrders();
+    }
+})();
