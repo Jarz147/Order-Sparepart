@@ -8,7 +8,7 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
-// FUNGSI TAMBAH PIC BARU
+// FUNGSI TAMBAH PIC BARU DINAMIS
 window.checkNewPIC = function(selectElement) {
     if (selectElement.value === "ADD_NEW") {
         const newName = prompt("Masukkan Nama PIC Baru:");
@@ -21,6 +21,7 @@ window.checkNewPIC = function(selectElement) {
             newOption.value = capitalizedName;
             newOption.text = capitalizedName;
             newOption.selected = true;
+            // Masukkan opsi baru di bawah "Tambah Nama Baru"
             selectElement.add(newOption, selectElement.options[2]);
         } else {
             selectElement.value = "";
@@ -35,7 +36,7 @@ async function checkSession() {
     } else {
         currentEmail = session.user.email;
         document.getElementById('user-display').innerText = `Active User: ${currentEmail}`;
-        if(currentEmail === ADMIN_EMAIL) {
+        if(currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
             document.getElementById('admin-tools').classList.remove('hidden');
         }
         fetchOrders();
@@ -44,59 +45,56 @@ async function checkSession() {
 
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
-    if (!error) { 
-        localData = data; 
-        renderTable(data); 
-    }
+    if (!error) { localData = data; renderTable(data); }
 }
 
 function renderTable(data) {
     const body = document.getElementById('data-body');
-    const isAdmin = currentEmail === ADMIN_EMAIL;
 
     body.innerHTML = data.map((i, index) => {
         const dateObj = new Date(i.created_at);
         const formattedDate = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
         
         const fotoBtn = i.gambar 
-            ? `<a href="${i.gambar}" target="_blank" class="text-indigo-600 bg-indigo-50 px-2 py-1 rounded text-[9px] font-black hover:bg-indigo-600 hover:text-white transition">LIHAT</a>` 
+            ? `<a href="${i.gambar}" target="_blank" class="text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-lg text-[9px] font-black hover:bg-indigo-600 hover:text-white transition-all">LIHAT</a>` 
             : `<span class="text-slate-300 text-[9px]">-</span>`;
 
         return `
             <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
                 <td class="px-4 py-5 text-center">
-                    ${isAdmin ? `
-                        <button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status || 'Pending'}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">Edit</button>
-                    ` : `<span class="text-[8px] text-slate-300 font-bold uppercase italic">Locked</span>`}
+                    <button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status || 'Pending'}')" 
+                        class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                        EDIT
+                    </button>
                 </td>
-                
-                <td class="px-4 py-5 text-center">${fotoBtn}</td>
-                
+
                 <td class="px-4 py-5 text-center text-slate-400 text-xs font-bold">${index + 1}</td>
-                
+
+                <td class="px-4 py-5 text-center">${fotoBtn}</td>
+
                 <td class="px-4 py-5">
-                    <div class="font-black uppercase text-slate-800 text-xs">${i['Nama Barang']}</div>
-                    <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
+                    <div class="font-black uppercase text-slate-800 text-xs tracking-tight">${i['Nama Barang']}</div>
+                    <div class="text-[10px] text-slate-400 italic font-medium">${i.Spesifikasi || '-'}</div>
                     <div class="text-[9px] text-indigo-400 font-bold mt-1 flex items-center gap-1">
                         <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         ${formattedDate}
                     </div>
                 </td>
-                
+
                 <td class="px-4 py-5">
                     <div class="text-[10px] font-black text-indigo-600 uppercase">PIC: ${i['PIC Order'] || '-'}</div>
-                    <div class="text-[10px] text-slate-500 leading-tight mt-1 max-w-xs">${i['Detail Pesanan'] || '-'}</div>
+                    <div class="text-[10px] text-slate-500 leading-tight mt-1 italic">${i['Detail Pesanan'] || '-'}</div>
                 </td>
-                
-                <td class="px-4 py-5 text-center font-black text-slate-800 uppercase text-xs">${i['Quantity Order']} ${i.Satuan || 'PCS'}</td>
-                
-                <td class="px-4 py-5 text-[10px] uppercase font-bold text-slate-500">
+
+                <td class="px-4 py-5 text-center font-black text-slate-800 text-xs whitespace-nowrap">${i['Quantity Order']} ${i.Satuan || 'PCS'}</td>
+
+                <td class="px-4 py-5 uppercase font-bold text-slate-500 text-[10px]">
                     ${i['Nama Line']}<br><span class="text-slate-300 font-normal italic text-[9px]">${i['Nama Mesin']}</span>
                 </td>
-                
+
                 <td class="px-4 py-5 text-center">
-                    <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${i.Status === 'Selesai' ? 'bg-green-100 text-green-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">${i.Status || 'Pending'}</span>
-                    <div class="text-[8px] text-slate-400 mt-1 font-mono">${i.PR ? 'PR:'+i.PR : ''}</div>
+                    <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">${i.Status || 'Pending'}</span>
+                    <div class="text-[8px] text-slate-300 mt-1 font-mono">${i.PR ? 'PR: '+i.PR : ''}</div>
                 </td>
             </tr>
         `;
@@ -104,7 +102,6 @@ function renderTable(data) {
 }
 
 window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
-
 window.exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(localData);
     const wb = XLSX.utils.book_new();
@@ -129,15 +126,13 @@ window.saveAdminUpdate = async () => {
         'PO': document.getElementById('edit-po').value,
         'Status': document.getElementById('edit-status').value
     }).eq('id', id);
-    
     if(!error) { window.closeModal(); fetchOrders(); }
-    else { alert("Gagal Update: " + error.message); }
 };
 
 document.getElementById('order-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
-    btn.innerText = "KIRIM..."; btn.disabled = true;
+    btn.innerText = "PROSES..."; btn.disabled = true;
 
     const payload = {
         'Nama Barang': document.getElementById('nama_barang').value,
@@ -149,11 +144,10 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
         'PIC Order': document.getElementById('pic_order').value,
         'Status': 'Pending'
     };
-    
-    const { error } = await supabase.from('Order-sparepart').insert([payload]);
-    if(!error) { document.getElementById('order-form').reset(); fetchOrders(); }
-    
-    btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
+    await supabase.from('Order-sparepart').insert([payload]);
+    document.getElementById('order-form').reset();
+    btn.innerText = "Kirim Permintaan"; btn.disabled = false;
+    fetchOrders();
 });
 
 checkSession();
