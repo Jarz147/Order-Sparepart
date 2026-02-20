@@ -4,18 +4,18 @@ const SUPABASE_URL = 'https://synhvvaolrjxdcbyozld.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5bmh2dmFvbHJqeGRjYnlvemxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5Njg4NzEsImV4cCI6MjA4NTU0NDg3MX0.GSEfz8HVd49uEWXd70taR6FUv243VrFJKn6KlsZW-aQ'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-const ADMIN_EMAIL = "admin@order-sparepart.com"; 
+const ADMIN_EMAIL = "admin@order-sparepart.com";
+const SPECIAL_USER = "user@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        window.location.href = 'login.html';
-    } else {
-        currentEmail = session.user.email;
-        document.getElementById('user-display').innerText = `User: ${currentEmail}`;
-        const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    if (!session) { window.location.href = 'login.html'; } 
+    else {
+        currentEmail = session.user.email.toLowerCase();
+        document.getElementById('user-display').innerText = `Login as: ${currentEmail}`;
+        const isAdmin = currentEmail === ADMIN_EMAIL.toLowerCase();
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
         fetchOrders();
     }
@@ -23,28 +23,13 @@ async function checkSession() {
 
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*');
-    if (!error) { 
-        localData = data; 
-        renderTable(data); 
-    }
-}
-
-async function uploadFile(file) {
-    if (!file) return null;
-    const fileName = `${Date.now()}_${file.name}`;
-    const { data, error } = await supabase.storage.from('sparepart-images').upload(fileName, file);
-    if (error) return null;
-    const { data: publicUrl } = supabase.storage.from('sparepart-images').getPublicUrl(fileName);
-    return publicUrl.publicUrl;
+    if (!error) { localData = data; renderTable(data); }
 }
 
 document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
     btn.innerText = "MENGIRIM..."; btn.disabled = true;
-
-    const fileInput = document.getElementById('foto_barang');
-    const fotoUrl = await uploadFile(fileInput.files[0]);
 
     const payload = {
         'Nama Barang': document.getElementById('nama_barang').value,
@@ -53,62 +38,40 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'Satuan': document.getElementById('satuan').value,
         'Nama Mesin': document.getElementById('nama_mesin').value,
         'Nama Line': document.getElementById('nama_line').value,
-        'PIC Order': document.getElementById('pic_order').value,
-        'gambar': fotoUrl,
+        'Detail Pesanan': document.getElementById('detail_pesanan').value,
         'Status': 'Pending',
-        'User Email': currentEmail // Otomatis simpan email pengirim
+        'User Email': currentEmail
     };
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
-    if (error) alert(error.message); 
-    else { 
-        document.getElementById('order-form').reset(); 
-        fetchOrders(); 
-    }
+    if (!error) { document.getElementById('order-form').reset(); fetchOrders(); }
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
 
 function renderTable(data) {
     const body = document.getElementById('data-body');
-    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isAdmin = currentEmail === ADMIN_EMAIL.toLowerCase();
+    const isSpecialUser = currentEmail === SPECIAL_USER.toLowerCase();
 
-    // Sort: Terbaru di atas
-    const sortedData = data.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-
-    body.innerHTML = sortedData.map((i, index) => {
-        const fotoHtml = i.gambar 
-            ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
-            : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300">No Pic</div>`;
-
-        // Validasi Edit: Case Insensitive Email
-        const isOwner = i['User Email']?.toLowerCase() === currentEmail.toLowerCase();
-        const canEdit = (isOwner && i.Status === 'Pending') || isAdmin;
-
+    body.innerHTML = data.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map((i, index) => {
+        const canEdit = (isSpecialUser || isAdmin) && i.Status === 'Pending';
         return `
-            <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
-                <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
-                <td class="px-4 py-5 flex justify-center">${fotoHtml}</td>
-                <td class="px-6 py-5">
-                    <div class="text-slate-800 font-bold text-sm uppercase">${i['Nama Barang']}</div>
+            <tr class="border-b hover:bg-slate-50">
+                <td class="px-4 py-4 text-center text-slate-400 text-xs">${index + 1}</td>
+                <td class="px-4 py-4">
+                    <div class="font-bold uppercase">${i['Nama Barang']}</div>
                     <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
                 </td>
-                <td class="px-6 py-5">
-                    <div class="text-[10px] font-black text-indigo-500 uppercase">${new Date(i.created_at).toLocaleDateString()}</div>
-                    <div class="text-[10px] text-slate-500 font-bold">PIC: ${i['PIC Order']}</div>
-                </td>
-                <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
-                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
-                <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
-                <td class="px-6 py-5 text-center">
-                    <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
-                    ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
+                <td class="px-4 py-4 text-xs text-slate-600">${i['Detail Pesanan'] || '-'}</td>
+                <td class="px-4 py-4 text-center font-bold text-indigo-600">${i['Quantity Order']} ${i.Satuan}</td>
+                <td class="px-4 py-4 text-[10px] uppercase">${i['Nama Line']}<br><span class="text-slate-400">${i['Nama Mesin']}</span></td>
+                <td class="px-4 py-4">
+                    <span class="text-[9px] font-black px-2 py-1 rounded-lg ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} uppercase">
                         ${i.Status || 'Pending'}
                     </span>
                 </td>
-                <td class="px-6 py-5 text-center">
-                    ${canEdit ? 
-                        `<button onclick="window.openModal('${i.id}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg font-black text-[10px] uppercase hover:bg-indigo-100">Edit</button>` 
-                        : `<span class="text-[8px] text-slate-300 font-bold italic">LOCKED</span>`}
+                <td class="px-4 py-4 text-center">
+                    ${canEdit ? `<button onclick="window.openModal('${i.id}')" class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Edit</button>` : '-'}
                 </td>
             </tr>
         `;
@@ -117,24 +80,17 @@ function renderTable(data) {
 
 window.openModal = (id) => {
     const item = localData.find(i => i.id == id);
-    if (!item) return;
-
-    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isAdmin = currentEmail === ADMIN_EMAIL.toLowerCase();
     
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-nama-barang').value = item['Nama Barang'];
     document.getElementById('edit-spesifikasi').value = item.Spesifikasi;
     document.getElementById('edit-qty').value = item['Quantity Order'];
     document.getElementById('edit-satuan').value = item.Satuan;
+    document.getElementById('edit-line').value = item['Nama Line'];
+    document.getElementById('edit-detail-pesanan').value = item['Detail Pesanan'] || '';
     
-    document.getElementById('admin-edit-fields').classList.toggle('hidden', !isAdmin);
-    if (isAdmin) {
-        document.getElementById('edit-pr').value = item.PR || '';
-        document.getElementById('edit-po').value = item.PO || '';
-        document.getElementById('edit-status').value = item.Status || 'Pending';
-    }
-
-    document.getElementById('modal-title').innerText = isAdmin ? "Admin Control" : "Edit Pesanan";
+    document.getElementById('admin-fields').classList.toggle('hidden', !isAdmin);
     document.getElementById('modal-edit').classList.remove('hidden');
 };
 
@@ -142,13 +98,14 @@ window.closeModal = () => document.getElementById('modal-edit').classList.add('h
 
 window.saveUpdate = async () => {
     const id = document.getElementById('edit-id').value;
-    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isAdmin = currentEmail === ADMIN_EMAIL.toLowerCase();
 
     const updateData = {
-        'Nama Barang': document.getElementById('edit-nama-barang').value,
         'Spesifikasi': document.getElementById('edit-spesifikasi').value,
         'Quantity Order': parseInt(document.getElementById('edit-qty').value),
         'Satuan': document.getElementById('edit-satuan').value,
+        'Nama Line': document.getElementById('edit-line').value,
+        'Detail Pesanan': document.getElementById('edit-detail-pesanan').value
     };
 
     if (isAdmin) {
@@ -158,20 +115,8 @@ window.saveUpdate = async () => {
     }
 
     const { error } = await supabase.from('Order-sparepart').update(updateData).eq('id', id);
-    if (!error) { 
-        window.closeModal(); 
-        fetchOrders(); 
-    } else { 
-        alert("Gagal update! Pastikan status masih Pending."); 
-    }
+    if (!error) { window.closeModal(); fetchOrders(); }
 };
 
 window.logout = async () => { await supabase.auth.signOut(); window.location.href = 'login.html'; };
-window.exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(localData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sparepart");
-    XLSX.writeFile(wb, "Report_Sparepart.xlsx");
-};
-
 checkSession();
