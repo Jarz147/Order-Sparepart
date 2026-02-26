@@ -127,21 +127,22 @@
     </div>
 
     <div id="modal-admin" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl max-h-[95vh] overflow-y-auto">
-            <h3 class="font-black text-slate-800 mb-6 uppercase tracking-tight text-xl text-center">Edit Data Order</h3>
-            <input type="hidden" id="edit-id">
+        <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl">
+            <h3 class="font-black text-slate-800 mb-2 uppercase tracking-tight text-xl text-center">Edit Data Sparepart</h3>
+            <p class="text-center text-[10px] text-rose-500 font-bold uppercase mb-6 italic">* Anda hanya diizinkan mengubah detail barang (Bukan Status/PR/PO)</p>
             
+            <input type="hidden" id="edit-id">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="md:col-span-2">
                     <label class="text-[9px] font-black text-indigo-500 uppercase ml-2">Nama Barang</label>
                     <input type="text" id="edit-nama" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div class="md:col-span-2">
-                    <label class="text-[9px] font-black text-indigo-500 uppercase ml-2">Spesifikasi</label>
+                    <label class="text-[9px] font-black text-indigo-500 uppercase ml-2">Spesifikasi / Ukuran</label>
                     <input type="text" id="edit-spek" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div>
-                    <label class="text-[9px] font-black text-indigo-500 uppercase ml-2">Qty</label>
+                    <label class="text-[9px] font-black text-indigo-500 uppercase ml-2">Quantity</label>
                     <input type="number" id="edit-qty" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div>
@@ -150,23 +151,14 @@
                         <option value="PCS">PCS</option><option value="ROLL">ROLL</option><option value="METER">METER</option><option value="SET">SET</option>
                     </select>
                 </div>
-                <div>
-                    <label class="text-[9px] font-black text-indigo-500 uppercase ml-2">Nomor PR</label>
-                    <input type="text" id="edit-pr" placeholder="Kosongkan jika belum ada" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="text-[9px] font-black text-indigo-500 uppercase ml-2">Nomor PO</label>
-                    <input type="text" id="edit-po" placeholder="Kosongkan jika belum ada" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="text-[9px] font-black text-indigo-500 uppercase ml-2">Status Progress</label>
-                    <select id="edit-status" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-black uppercase text-xs cursor-pointer border-transparent">
-                        <option value="Pending">Waiting</option>
-                        <option value="On Process">On Process</option>
-                        <option value="Selesai">Done</option>
-                    </select>
-                </div>
             </div>
+    
+            <div class="flex gap-3 mt-8">
+                <button onclick="window.closeModal()" class="flex-1 py-4 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase">Batal</button>
+                <button onclick="window.saveAdminUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
             
             <div class="flex gap-3 mt-8">
                 <button onclick="window.closeModal()" class="flex-1 py-4 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase">Batal</button>
