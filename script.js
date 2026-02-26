@@ -4,7 +4,8 @@ const SUPABASE_URL = 'https://synhvvaolrjxdcbyozld.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5bmh2dmFvbHJqeGRjYnlvemxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5Njg4NzEsImV4cCI6MjA4NTU0NDg3MX0.GSEfz8HVd49uEWXd70taR6FUv243VrFJKn6KlsZW-aQ'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-const ADMIN_EMAIL = "admin@order-sparepart.com"; 
+// Tambahkan user@ ke daftar yang bisa mengedit
+const ADMIN_EMAILS = ["admin@order-sparepart.com", "user@order-sparepart.com"]; 
 let currentEmail = "";
 let localData = [];
 
@@ -14,11 +15,13 @@ async function checkSession() {
     if (!session) {
         window.location.href = 'login.html';
     } else {
-        currentEmail = session.user.email;
+        currentEmail = session.user.email.toLowerCase();
         document.getElementById('user-display').innerText = `User: ${currentEmail}`;
-        const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        
+        const isAdmin = ADMIN_EMAILS.includes(currentEmail);
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
-        document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
+        
+        // Form tetap terlihat agar user bisa input permintaan baru
         fetchOrders();
     }
 }
@@ -31,7 +34,7 @@ async function fetchOrders() {
     }
 }
 
-// --- FUNGSI UPLOAD FOTO KE STORAGE ---
+// --- FUNGSI UPLOAD FOTO ---
 async function uploadFile(file) {
     if (!file) return null;
     const fileExt = file.name.split('.').pop();
@@ -42,11 +45,7 @@ async function uploadFile(file) {
         .from('sparepart-images')
         .upload(filePath, file);
 
-    if (error) {
-        console.error("Gagal upload:", error);
-        return null;
-    }
-    
+    if (error) return null;
     const { data: publicData } = supabase.storage.from('sparepart-images').getPublicUrl(filePath);
     return publicData.publicUrl;
 }
@@ -57,7 +56,6 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     const btn = document.getElementById('btn-submit');
     btn.innerText = "MENGIRIM..."; btn.disabled = true;
 
-    // Proses Upload
     const fileInput = document.getElementById('foto_barang');
     const fotoUrl = await uploadFile(fileInput.files[0]);
 
@@ -102,6 +100,7 @@ function applyFiltersAndSort() {
             filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
             break;
         case 'status':
+            // FITUR SORT BY STATUS: Mengelompokkan berdasarkan abjad status
             filtered.sort((a, b) => (a.Status || "").localeCompare(b.Status || ""));
             break;
         case 'line':
@@ -121,7 +120,7 @@ function applyFiltersAndSort() {
 // --- RENDER TABEL ---
 function renderTable(data) {
     const body = document.getElementById('data-body');
-    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isAdmin = ADMIN_EMAILS.includes(currentEmail);
 
     body.innerHTML = data.map((i, index) => {
         const fotoHtml = i.gambar 
@@ -148,7 +147,7 @@ function renderTable(data) {
                     </span>
                 </td>
                 <td class="px-6 py-5 text-center">
-                    ${isAdmin ? `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">Edit</button>` : '<span class="text-[8px] text-slate-300 font-bold">VIEW</span>'}
+                    ${isAdmin ? `<button onclick="window.openModal('${i.id}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors uppercase text-[10px] font-bold px-3">Edit</button>` : '<span class="text-[8px] text-slate-300 font-bold">VIEW</span>'}
                 </td>
             </tr>
         `;
@@ -159,22 +158,39 @@ function renderTable(data) {
 document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
 document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
 
-window.openModal = (id, pr, po, status) => {
-    document.getElementById('edit-id').value = id;
-    document.getElementById('edit-pr').value = pr;
-    document.getElementById('edit-po').value = po;
-    document.getElementById('edit-status').value = status;
+// Buka modal dan ambil data baris secara utuh
+window.openModal = (id) => {
+    const item = localData.find(d => d.id == id);
+    if (!item) return;
+
+    document.getElementById('edit-id').value = item.id;
+    document.getElementById('edit-nama').value = item['Nama Barang'] || '';
+    document.getElementById('edit-spek').value = item.Spesifikasi || '';
+    document.getElementById('edit-qty').value = item['Quantity Order'] || 0;
+    document.getElementById('edit-satuan').value = item.Satuan || 'PCS';
+    document.getElementById('edit-pr').value = item.PR || '';
+    document.getElementById('edit-po').value = item.PO || '';
+    document.getElementById('edit-status').value = item.Status || 'Pending';
+    
     document.getElementById('modal-admin')?.classList.remove('hidden');
 };
+
 window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
 
+// Simpan update untuk semua field yang diedit
 window.saveAdminUpdate = async () => {
     const id = document.getElementById('edit-id').value;
-    const { error } = await supabase.from('Order-sparepart').update({
+    const updatedData = {
+        'Nama Barang': document.getElementById('edit-nama').value,
+        'Spesifikasi': document.getElementById('edit-spek').value,
+        'Quantity Order': parseInt(document.getElementById('edit-qty').value),
+        'Satuan': document.getElementById('edit-satuan').value,
         'PR': document.getElementById('edit-pr').value,
         'PO': document.getElementById('edit-po').value,
         'Status': document.getElementById('edit-status').value
-    }).eq('id', id);
+    };
+
+    const { error } = await supabase.from('Order-sparepart').update(updatedData).eq('id', id);
     if (!error) { 
         window.closeModal(); 
         fetchOrders(); 
