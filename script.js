@@ -1,6 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-// INITIALIZATION
 const SUPABASE_URL = 'https://synhvvaolrjxdcbyozld.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5bmh2dmFvbHJqeGRjYnlvemxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5Njg4NzEsImV4cCI6MjA4NTU0NDg3MX0.GSEfz8HVd49uEWXd70taR6FUv243VrFJKn6KlsZW-aQ'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -9,65 +8,181 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
-// SESSION CHECK
+// --- SESSION CHECK ---
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
         window.location.href = 'login.html';
     } else {
         currentEmail = session.user.email;
-        document.getElementById('user-display').innerText = `Active User: ${currentEmail}`;
-        
-        if(currentEmail === ADMIN_EMAIL) {
-            document.getElementById('admin-tools').classList.remove('hidden');
-        }
+        document.getElementById('user-display').innerText = `User: ${currentEmail}`;
+        const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
+        document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
         fetchOrders();
     }
 }
 
-// DATA FETCHING
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
     if (!error) { 
         localData = data; 
-        renderTable(data); 
+        applyFiltersAndSort(); 
     }
 }
 
-// RENDERING
-function renderTable(data) {
-    const body = document.getElementById('data-body');
-    const isAdmin = currentEmail === ADMIN_EMAIL;
+// --- FUNGSI UPLOAD FOTO KE STORAGE ---
+async function uploadFile(file) {
+    if (!file) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
 
-    body.innerHTML = data.map(i => `
-        <tr class="${i.Status === 'Pending' ? 'bg-rose-50/30' : ''} hover:bg-slate-50 transition-all font-semibold border-b border-slate-50">
-            <td class="px-6 py-5 text-[10px] text-slate-400 uppercase">${new Date(i.created_at).toLocaleDateString()}</td>
-            <td class="px-6 py-5">
-                <div class="text-slate-800">${i['Nama Barang']}</div>
-                <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || ''}</div>
-            </td>
-            <td class="px-6 py-5">
-                <div class="text-[10px] text-slate-600">${i['Nama Line']} / ${i['Nama Mesin']}</div>
-                <div class="text-indigo-600 font-black uppercase">QTY: ${i['Quantity Order']}</div>
-            </td>
-            <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">
-                PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}
-            </td>
-            <td class="px-6 py-5 text-center">
-                <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${i.Status === 'Selesai' ? 'bg-green-100 text-green-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">${i.Status || 'Pending'}</span>
-            </td>
-            <td class="px-6 py-5 text-center">
-                ${isAdmin ? `
-                    <button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status || 'Pending'}')" class="p-2.5 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                    </button>
-                ` : `<span class="text-[10px] text-slate-300 italic uppercase">User Only</span>`}
-            </td>
-        </tr>
-    `).join('');
+    const { data, error } = await supabase.storage
+        .from('sparepart-images')
+        .upload(filePath, file);
+
+    if (error) {
+        console.error("Gagal upload:", error);
+        return null;
+    }
+    
+    const { data: publicData } = supabase.storage.from('sparepart-images').getPublicUrl(filePath);
+    return publicData.publicUrl;
 }
 
-// GLOBAL WINDOW FUNCTIONS (Dibutuhkan agar bisa dipanggil dari HTML onclick)
+// --- SUBMIT FORM ---
+document.getElementById('order-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit');
+    btn.innerText = "MENGIRIM..."; btn.disabled = true;
+
+    // Proses Upload
+    const fileInput = document.getElementById('foto_barang');
+    const fotoUrl = await uploadFile(fileInput.files[0]);
+
+    const payload = {
+        'Nama Barang': document.getElementById('nama_barang').value,
+        'Spesifikasi': document.getElementById('spesifikasi').value,
+        'Quantity Order': parseInt(document.getElementById('qty').value),
+        'Satuan': document.getElementById('satuan').value,
+        'Nama Mesin': document.getElementById('nama_mesin').value,
+        'Nama Line': document.getElementById('nama_line').value,
+        'PIC Order': document.getElementById('pic_order').value,
+        'gambar': fotoUrl,
+        'Status': 'Pending'
+    };
+
+    const { error } = await supabase.from('Order-sparepart').insert([payload]);
+    if (error) alert("Error: " + error.message); 
+    else { 
+        document.getElementById('order-form').reset(); 
+        fetchOrders(); 
+    }
+    btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
+});
+
+// --- FITUR SORT & FILTER ---
+function applyFiltersAndSort() {
+    const term = document.getElementById('search-input')?.value.toLowerCase() || "";
+    const sortCriteria = document.getElementById('sort-select')?.value || "newest";
+
+    let filtered = localData.filter(i => 
+        (i['Nama Barang']?.toLowerCase().includes(term)) || 
+        (i['Nama Mesin']?.toLowerCase().includes(term)) ||
+        (i['PIC Order']?.toLowerCase().includes(term)) ||
+        (i['Status']?.toLowerCase().includes(term))
+    );
+
+    switch (sortCriteria) {
+        case 'newest':
+            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            break;
+        case 'oldest':
+            filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            break;
+        case 'status':
+            filtered.sort((a, b) => (a.Status || "").localeCompare(b.Status || ""));
+            break;
+        case 'line':
+            filtered.sort((a, b) => (a['Nama Line'] || "").localeCompare(b['Nama Line'] || ""));
+            break;
+        case 'pic':
+            filtered.sort((a, b) => (a['PIC Order'] || "").localeCompare(b['PIC Order'] || ""));
+            break;
+        case 'urutan':
+            filtered.sort((a, b) => (a['Nama Barang'] || "").localeCompare(b['Nama Barang'] || ""));
+            break;
+    }
+
+    renderTable(filtered);
+}
+
+// --- RENDER TABEL ---
+function renderTable(data) {
+    const body = document.getElementById('data-body');
+    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+    body.innerHTML = data.map((i, index) => {
+        const fotoHtml = i.gambar 
+            ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
+            : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300 italic">No Pic</div>`;
+
+        return `
+            <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
+                <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
+                <td class="px-4 py-5 flex justify-center">${fotoHtml}</td>
+                <td class="px-6 py-5 text-[10px] text-slate-400 font-mono text-center">${new Date(i.created_at).toLocaleDateString('id-ID')}</td>
+                <td class="px-6 py-5">
+                    <div class="text-slate-800 font-bold text-sm uppercase">${i['Nama Barang']}</div>
+                    <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
+                    <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
+                </td>
+                <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
+                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
+                <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
+                <td class="px-6 py-5 text-center">
+                    <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
+                    ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
+                        ${i.Status || 'Pending'}
+                    </span>
+                </td>
+                <td class="px-6 py-5 text-center">
+                    ${isAdmin ? `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">Edit</button>` : '<span class="text-[8px] text-slate-300 font-bold">VIEW</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- UTILITIES & MODAL ---
+document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
+document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
+
+window.openModal = (id, pr, po, status) => {
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-pr').value = pr;
+    document.getElementById('edit-po').value = po;
+    document.getElementById('edit-status').value = status;
+    document.getElementById('modal-admin')?.classList.remove('hidden');
+};
+window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
+
+window.saveAdminUpdate = async () => {
+    const id = document.getElementById('edit-id').value;
+    const { error } = await supabase.from('Order-sparepart').update({
+        'PR': document.getElementById('edit-pr').value,
+        'PO': document.getElementById('edit-po').value,
+        'Status': document.getElementById('edit-status').value
+    }).eq('id', id);
+    if (!error) { 
+        window.closeModal(); 
+        fetchOrders(); 
+    } else { 
+        alert("Gagal update data!"); 
+    }
+};
+
 window.logout = async () => { 
     await supabase.auth.signOut(); 
     window.location.href = 'login.html'; 
@@ -77,85 +192,7 @@ window.exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(localData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, "Report_Sparepart.xlsx");
+    XLSX.writeFile(wb, "Sparepart_Report.xlsx");
 };
 
-window.openModal = (id, pr, po, status) => {
-    document.getElementById('edit-id').value = id;
-    document.getElementById('edit-pr').value = pr;
-    document.getElementById('edit-po').value = po;
-    document.getElementById('edit-status').value = status;
-    document.getElementById('modal-admin').classList.remove('hidden');
-};
-
-window.closeModal = () => document.getElementById('modal-admin').classList.add('hidden');
-
-window.saveAdminUpdate = async () => {
-    const id = document.getElementById('edit-id').value;
-    await supabase.from('Order-sparepart').update({
-        'PR': document.getElementById('edit-pr').value,
-        'PO': document.getElementById('edit-po').value,
-        'Status': document.getElementById('edit-status').value
-    }).eq('id', id);
-    window.closeModal(); 
-    fetchOrders();
-};
-
-// EVENT LISTENERS
-document.getElementById('import-excel').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-        
-        if(confirm(`Import ${jsonData.length} data dari Excel?`)) {
-            const formatted = jsonData.map(row => ({
-                'Nama Barang': row['Nama Barang'],
-                'Spesifikasi': row['Spesifikasi'],
-                'Quantity Order': row['Quantity Order'],
-                'Nama Mesin': row['Nama Mesin'],
-                'Nama Line': row['Nama Line'],
-                'PIC Order': row['PIC Order'],
-                'Status': row['Status'] || 'Pending',
-                'PR': row['PR'] || '',
-                'PO': row['PO'] || ''
-            }));
-            
-            const { error } = await supabase.from('Order-sparepart').insert(formatted);
-            if(!error) { alert("Berhasil Import!"); fetchOrders(); }
-            else { alert("Error: " + error.message); }
-        }
-    };
-    reader.readAsArrayBuffer(file);
-});
-
-document.getElementById('order-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const payload = {
-        'Nama Barang': document.getElementById('nama_barang').value,
-        'Spesifikasi': document.getElementById('spesifikasi').value,
-        'Quantity Order': parseInt(document.getElementById('qty').value),
-        'Nama Mesin': document.getElementById('nama_mesin').value,
-        'Nama Line': document.getElementById('nama_line').value,
-        'PIC Order': document.getElementById('pic_order').value,
-        'Status': 'Pending'
-    };
-    await supabase.from('Order-sparepart').insert([payload]);
-    document.getElementById('order-form').reset(); 
-    fetchOrders();
-});
-
-document.getElementById('search-input').addEventListener('input', (e) => {
-    const val = e.target.value.toLowerCase();
-    const filtered = localData.filter(i => 
-        i['Nama Barang']?.toLowerCase().includes(val) || 
-        i['Status']?.toLowerCase().includes(val) || 
-        i['Nama Mesin']?.toLowerCase().includes(val)
-    );
-    renderTable(filtered);
-});
-
-// START
 checkSession();
