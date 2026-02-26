@@ -4,7 +4,7 @@ const SUPABASE_URL = 'https://synhvvaolrjxdcbyozld.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5bmh2dmFvbHJqeGRjYnlvemxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5Njg4NzEsImV4cCI6MjA4NTU0NDg3MX0.GSEfz8HVd49uEWXd70taR6FUv243VrFJKn6KlsZW-aQ'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-// Tambahkan user@ ke daftar yang bisa mengedit
+// DAFTAR EMAIL YANG BISA EDIT & EXPORT
 const ADMIN_EMAILS = ["admin@order-sparepart.com", "user@order-sparepart.com"]; 
 let currentEmail = "";
 let localData = [];
@@ -18,23 +18,28 @@ async function checkSession() {
         currentEmail = session.user.email.toLowerCase();
         document.getElementById('user-display').innerText = `User: ${currentEmail}`;
         
+        // Cek Izin Admin/Editor
         const isAdmin = ADMIN_EMAILS.includes(currentEmail);
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
         
-        // Form tetap terlihat agar user bisa input permintaan baru
         fetchOrders();
     }
 }
 
+// --- AMBIL DATA ---
 async function fetchOrders() {
-    const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+        .from('Order-sparepart')
+        .select('*')
+        .order('created_at', { ascending: false });
+    
     if (!error) { 
         localData = data; 
         applyFiltersAndSort(); 
     }
 }
 
-// --- FUNGSI UPLOAD FOTO ---
+// --- UPLOAD FOTO ---
 async function uploadFile(file) {
     if (!file) return null;
     const fileExt = file.name.split('.').pop();
@@ -50,7 +55,7 @@ async function uploadFile(file) {
     return publicData.publicUrl;
 }
 
-// --- SUBMIT FORM ---
+// --- SUBMIT FORM BARU ---
 document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
@@ -92,6 +97,7 @@ function applyFiltersAndSort() {
         (i['Status']?.toLowerCase().includes(term))
     );
 
+    // LOGIKA SORTING
     switch (sortCriteria) {
         case 'newest':
             filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -100,7 +106,6 @@ function applyFiltersAndSort() {
             filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
             break;
         case 'status':
-            // FITUR SORT BY STATUS: Mengelompokkan berdasarkan abjad status
             filtered.sort((a, b) => (a.Status || "").localeCompare(b.Status || ""));
             break;
         case 'line':
@@ -147,18 +152,14 @@ function renderTable(data) {
                     </span>
                 </td>
                 <td class="px-6 py-5 text-center">
-                    ${isAdmin ? `<button onclick="window.openModal('${i.id}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors uppercase text-[10px] font-bold px-3">Edit</button>` : '<span class="text-[8px] text-slate-300 font-bold">VIEW</span>'}
+                    ${isAdmin ? `<button onclick="window.openModal('${i.id}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors font-bold text-[10px] uppercase px-3">Edit</button>` : '<span class="text-[8px] text-slate-300 font-bold">VIEW</span>'}
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-// --- UTILITIES & MODAL ---
-document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
-document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
-
-// Buka modal dan ambil data baris secara utuh
+// --- MODAL LOGIC (EDIT SEMUA FIELD) ---
 window.openModal = (id) => {
     const item = localData.find(d => d.id == id);
     if (!item) return;
@@ -177,7 +178,6 @@ window.openModal = (id) => {
 
 window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
 
-// Simpan update untuk semua field yang diedit
 window.saveAdminUpdate = async () => {
     const id = document.getElementById('edit-id').value;
     const updatedData = {
@@ -199,16 +199,40 @@ window.saveAdminUpdate = async () => {
     }
 };
 
+// --- FITUR EXPORT EXCEL ---
+window.exportToExcel = () => {
+    if (localData.length === 0) return alert("Tidak ada data untuk dieksport!");
+    
+    // Format data agar lebih rapi di Excel
+    const dataToExport = localData.map(item => ({
+        'Tanggal': new Date(item.created_at).toLocaleDateString('id-ID'),
+        'Nama Barang': item['Nama Barang'],
+        'Spesifikasi': item.Spesifikasi,
+        'Qty': item['Quantity Order'],
+        'Satuan': item.Satuan,
+        'Mesin': item['Nama Mesin'],
+        'Line': item['Nama Line'],
+        'PIC Order': item['PIC Order'],
+        'No. PR': item.PR || '-',
+        'No. PO': item.PO || '-',
+        'Status': item.Status
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Daftar_Order_Sparepart");
+    XLSX.writeFile(wb, `Report_Sparepart_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
+// --- LOGOUT ---
 window.logout = async () => { 
     await supabase.auth.signOut(); 
     window.location.href = 'login.html'; 
 };
 
-window.exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(localData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, "Sparepart_Report.xlsx");
-};
+// --- EVENT LISTENERS ---
+document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
+document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
 
+// JALANKAN PERTAMA KALI
 checkSession();
