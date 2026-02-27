@@ -1,195 +1,260 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sparepart Pro - Control System</title>
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+const SUPABASE_URL = 'https://synhvvaolrjxdcbyozld.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5bmh2dmFvbHJqeGRjYnlvemxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5Njg4NzEsImV4cCI6MjA4NTU0NDg3MX0.GSEfz8HVd49uEWXd70taR6FUv243VrFJKn6KlsZW-aQ'
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+const ADMIN_EMAIL = "admin@order-sparepart.com";
+const USER_EDIT_EMAIL = "user@order-sparepart.com"; 
+let currentEmail = "";
+let localData = [];
+
+// --- SESSION CHECK ---
+async function checkSession() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        window.location.href = 'login.html';
+    } else {
+        currentEmail = session.user.email;
+        document.getElementById('user-display').innerText = `User: ${currentEmail}`;
+        const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        
+        document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
+        document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
+        fetchOrders();
+    }
+}
+
+async function fetchOrders() {
+    const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
+    if (!error) { 
+        localData = data; 
+        applyFiltersAndSort(); 
+    }
+}
+
+// --- UPLOAD FOTO ---
+async function uploadFile(file) {
+    if (!file) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
+
+    const { data, error } = await supabase.storage
+        .from('sparepart-images')
+        .upload(filePath, file);
+
+    if (error) {
+        console.error("Gagal upload:", error);
+        return null;
+    }
     
-    <link rel="icon" type="image/png" href="MTC.png">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    const { data: publicData } = supabase.storage.from('sparepart-images').getPublicUrl(filePath);
+    return publicData.publicUrl;
+}
+
+// --- SUBMIT FORM ---
+document.getElementById('order-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit');
+    btn.innerText = "MENGIRIM..."; btn.disabled = true;
+
+    const fileInput = document.getElementById('foto_barang');
+    const fotoUrl = await uploadFile(fileInput.files[0]);
+
+    const payload = {
+        'Nama Barang': document.getElementById('nama_barang').value,
+        'Spesifikasi': document.getElementById('spesifikasi').value,
+        'Quantity Order': parseInt(document.getElementById('qty').value),
+        'Satuan': document.getElementById('satuan').value,
+        'Nama Mesin': document.getElementById('nama_mesin').value,
+        'Nama Line': document.getElementById('nama_line').value,
+        'PIC Order': document.getElementById('pic_order').value,
+        'gambar': fotoUrl,
+        'Status': 'Pending'
+    };
+
+    const { error } = await supabase.from('Order-sparepart').insert([payload]);
+    if (error) alert("Error: " + error.message); 
+    else { 
+        document.getElementById('order-form').reset(); 
+        fetchOrders(); 
+    }
+    btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
+});
+
+// --- FILTER & SORT ---
+function applyFiltersAndSort() {
+    const term = document.getElementById('search-input')?.value.toLowerCase() || "";
+    const sortCriteria = document.getElementById('sort-select')?.value || "newest";
+
+    let filtered = localData.filter(i => 
+        (i['Nama Barang']?.toLowerCase().includes(term)) || 
+        (i['Nama Mesin']?.toLowerCase().includes(term)) ||
+        (i['PIC Order']?.toLowerCase().includes(term)) ||
+        (i['Status']?.toLowerCase().includes(term))
+    );
+
+    switch (sortCriteria) {
+        case 'newest':
+            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            break;
+        case 'oldest':
+            filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            break;
+        case 'status':
+            filtered.sort((a, b) => (a.Status || "").localeCompare(b.Status || ""));
+            break;
+        case 'line':
+            filtered.sort((a, b) => (a['Nama Line'] || "").localeCompare(b['Nama Line'] || ""));
+            break;
+        case 'pic':
+            filtered.sort((a, b) => (a['PIC Order'] || "").localeCompare(b['PIC Order'] || ""));
+            break;
+        case 'urutan':
+            filtered.sort((a, b) => (a['Nama Barang'] || "").localeCompare(b['Nama Barang'] || ""));
+            break;
+    }
+
+    renderTable(filtered);
+}
+
+// --- RENDER TABEL ---
+function renderTable(data) {
+    const body = document.getElementById('data-body');
+    if(!body) return;
     
-    <style>
-        .table-container { max-height: 60vh; overflow-y: auto; overflow-x: auto; }
-        thead th { position: sticky; top: 0; z-index: 20; background-color: #f8fafc; box-shadow: inset 0 -1px 0 #e2e8f0; }
-        .table-container::-webkit-scrollbar { width: 4px; height: 4px; }
-        .table-container::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        #modal-admin:not(.hidden), #modal-user-edit:not(.hidden) { display: flex; animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
-</head>
-<body class="bg-slate-50 min-h-screen pb-20 font-sans text-slate-900">
+    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isUserEdit = currentEmail.toLowerCase() === USER_EDIT_EMAIL.toLowerCase();
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
-        <div class="mb-8 flex flex-col md:flex-row justify-between items-center border-b pb-6 gap-4 relative">
-            <div class="flex flex-col w-full md:w-1/3 items-center md:items-start">
-                <h1 class="text-2xl font-black tracking-tight text-slate-800">
-                    Sparepart <span class="text-indigo-600">Pro</span>
-                </h1>
-                <p id="user-display" class="mt-2 text-slate-500 text-[10px] font-bold uppercase italic">Memuat user...</p>
-            </div>
+    body.innerHTML = data.map((i, index) => {
+        const fotoHtml = i.gambar 
+            ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
+            : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300 italic">No Pic</div>`;
 
-            <div class="md:absolute md:left-1/2 md:-translate-x-1/2">
-                <img src="TEST 1 C.png" alt="Logo" class="h-16 w-auto object-contain cursor-pointer" onclick="location.reload()"> 
-            </div>
+        let actionBtn = '<span class="text-[8px] text-slate-300 font-bold uppercase tracking-tighter">View Only</span>';
+        if (isAdmin) {
+            actionBtn = `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status}')" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-[9px] hover:bg-indigo-100">EDIT ADMIN</button>`;
+        } else if (isUserEdit) {
+            actionBtn = `<button onclick="window.openUserEditModal('${i.id}')" class="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 text-lg leading-none" title="Edit Detail">✏️</button>`;
+        }
 
-            <div class="flex gap-2 justify-center md:justify-end w-full md:w-1/3">
-                <div id="admin-tools" class="hidden flex gap-2">
-                    <button onclick="window.exportToExcel()" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black px-4 py-2.5 rounded-xl shadow-md uppercase">Export Report</button>
-                </div>
-                <button onclick="window.logout()" class="bg-white border border-rose-200 text-rose-500 text-[9px] font-black px-4 py-2.5 rounded-xl hover:bg-rose-50 uppercase">Logout</button>
-            </div>
-        </div>
+        return `
+            <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
+                <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
+                <td class="px-4 py-5 flex justify-center">${fotoHtml}</td>
+                <td class="px-6 py-5 text-[10px] text-slate-400 font-mono text-center">${new Date(i.created_at).toLocaleDateString('id-ID')}</td>
+                <td class="px-6 py-5">
+                    <div class="text-slate-800 font-bold text-sm uppercase">${i['Nama Barang']}</div>
+                    <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
+                    <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
+                </td>
+                <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
+                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
+                <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
+                <td class="px-6 py-5 text-center">
+                    <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
+                    ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
+                        ${i.Status || 'Pending'}
+                    </span>
+                </td>
+                <td class="px-6 py-5 text-center">${actionBtn}</td>
+            </tr>
+        `;
+    }).join('');
+}
 
-        <div id="form-container" class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 mb-8">
-            <h2 class="text-[10px] font-black mb-6 text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <span class="bg-indigo-600 w-1.5 h-4 rounded-full"></span> Form Permintaan Barang
-            </h2>
-            <form id="order-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <input type="text" id="nama_barang" required placeholder="Nama Barang" class="md:col-span-2 px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
-                <input type="text" id="spesifikasi" placeholder="Spesifikasi" class="md:col-span-2 px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
-                
-                <div class="flex gap-2">
-                    <input type="number" id="qty" required placeholder="Qty" class="w-2/3 px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
-                    <select id="satuan" required class="w-1/3 px-2 py-3 bg-slate-50 rounded-2xl outline-none text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
-                        <option value="PCS">Pcs</option><option value="ROLL">Roll</option><option value="METER">Meter</option><option value="SET">Set</option>
-                    </select>
-                </div>
-                
-                <input type="text" id="nama_mesin" required placeholder="Nama Mesin" class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold border-transparent">
-                
-                <select id="nama_line" required class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
-                    <option value="" disabled selected>PILIH LINE</option>
-                    <option value="Assy 1">Assy 1</option><option value="Assy 2">Assy 2</option><option value="Assy 3">Assy 3</option>
-                    <option value="Assy 4">Assy 4</option><option value="Assy 5">Assy 5</option><option value="Assy 6">Assy 6</option>
-                    <option value="Assy 7">Assy 7</option><option value="Assy 8">Assy 8</option><option value="Assy 9">Assy 9</option>
-                    <option value="Bending">Bending</option><option value="Spinning">Spinning</option>
-                    <option value="Kompressor">Kompressor</option><option value="Cooling Tower">Cooling Tower</option>
-                    <option value="Project">Project</option>
-                </select>
-                
-                <select id="pic_order" required class="px-5 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] font-black uppercase text-slate-500 border-transparent cursor-pointer">
-                    <option value="" disabled selected>PILIH PIC REQUEST</option>
-                    <option value="Wawan Gianto">Wawan Gianto</option><option value="Nur Rohmat">Nur Rohmat</option>
-                    <option value="Aryo Setioko">Aryo Setioko</option><option value="Budi Irawan">Budi Irawan</option>
-                    <option value="Wisnu Ernandi">Wisnu Ernandi</option><option value="Pajar Ardianto">Pajar Ardianto</option>
-                    <option value="Iwan Prasetyo">Iwan Prasetyo</option><option value="Azkia Rasya Ikbar">Azkia Rasya Ikbar</option>
-                    <option value="Randika Septian">Randika Septian</option><option value="Irwan Bagustian">Irwan Bagustian</option>
-                    <option value="Deni Andriansa">Deni Andriansa</option>
-                </select>
+// --- MODAL ADMIN LOGIC ---
+window.openModal = (id, pr, po, status) => {
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-pr').value = pr;
+    document.getElementById('edit-po').value = po;
+    document.getElementById('edit-status').value = status;
+    document.getElementById('modal-admin')?.classList.remove('hidden');
+};
+window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
 
-                <div class="relative">
-                    <label class="absolute -top-2 left-4 px-2 bg-white text-[8px] font-black text-indigo-500 uppercase">Foto Barang</label>
-                    <input type="file" id="foto_barang" accept="image/*" class="w-full px-5 py-2.5 bg-slate-50 rounded-2xl outline-none text-[10px] font-bold text-slate-400 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-indigo-100 file:text-indigo-700 cursor-pointer">
-                </div>
-                
-                <div class="md:col-span-4 flex justify-end">
-                    <button type="submit" id="btn-submit" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-12 rounded-2xl shadow-xl text-[10px] uppercase tracking-widest">Kirim Permintaan</button>
-                </div>
-            </form>
-        </div>
+window.saveAdminUpdate = async () => {
+    const id = document.getElementById('edit-id').value;
+    const { error } = await supabase.from('Order-sparepart').update({
+        'PR': document.getElementById('edit-pr').value,
+        'PO': document.getElementById('edit-po').value,
+        'Status': document.getElementById('edit-status').value
+    }).eq('id', id);
+    if (!error) { window.closeModal(); fetchOrders(); }
+    else alert("Gagal update!");
+};
 
-        <div class="mb-6 flex flex-col md:flex-row gap-4">
-            <div class="relative flex-1">
-                <input type="text" id="search-input" placeholder="Cari barang, mesin, PIC, atau status..." class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none text-sm font-semibold italic">
-                <span class="absolute left-4 top-3.5 opacity-30 text-lg">🔍</span>
-            </div>
-            <select id="sort-select" class="h-full px-5 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase text-slate-500 cursor-pointer shadow-sm">
-                <option value="newest">⏰ Terbaru (Newest)</option>
-                <option value="oldest">⌛ Terlama (Oldest)</option>
-                <option value="status">📊 Status (Grup)</option>
-                <option value="line">🏭 Nama Line (A-Z)</option>
-                <option value="pic">👤 PIC Request (A-Z)</option>
-                <option value="urutan">🔠 Urutan Barang (A-Z)</option>
-            </select>
-        </div>
+// --- MODAL USER LOGIC (DIPERBAIKI) ---
+window.openUserEditModal = (id) => {
+    // Perbaikan: Gunakan == (double equal) agar string ID cocok dengan number ID
+    const item = localData.find(d => d.id == id);
+    
+    if (!item) {
+        console.error("Data tidak ditemukan untuk ID:", id);
+        return;
+    }
 
-        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="table-container">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                            <th class="px-4 py-5 text-center">No</th>
-                            <th class="px-4 py-5 text-center">Foto</th>
-                            <th class="px-6 py-5 text-center">Tgl</th>
-                            <th class="px-6 py-5">Detail Barang</th>
-                            <th class="px-6 py-5 text-center">Qty</th>
-                            <th class="px-6 py-5">Mesin / Line</th>
-                            <th class="px-6 py-5">No. PR/PO</th>
-                            <th class="px-6 py-5 text-center">Status</th>
-                            <th class="px-6 py-5 text-center">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="data-body" class="divide-y divide-slate-50 text-sm font-semibold text-slate-700"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    const modal = document.getElementById('modal-user-edit');
+    if(!modal) return;
 
-    <div id="modal-admin" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
-            <h3 class="font-black text-slate-800 mb-6 uppercase tracking-tight text-xl text-center">Update Status Admin</h3>
-            <input type="hidden" id="edit-id">
-            <div class="space-y-4">
-                <input type="text" id="edit-pr" placeholder="Nomor PR" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent">
-                <input type="text" id="edit-po" placeholder="Nomor PO" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent">
-                <select id="edit-status" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-black uppercase text-xs cursor-pointer border-transparent">
-                    <option value="Pending">Waiting</option>
-                    <option value="On Process">On Process</option>
-                    <option value="Selesai">Done</option>
-                </select>
-            </div>
-            <div class="flex gap-3 mt-8">
-                <button onclick="window.closeModal()" class="flex-1 py-4 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase">Batal</button>
-                <button onclick="window.saveAdminUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200">Simpan Update</button>
-            </div>
-        </div>
-    </div>
+    document.getElementById('edit-user-id').value = id;
+    document.getElementById('edit-user-nama').value = item['Nama Barang'] || '';
+    document.getElementById('edit-user-spek').value = item['Spesifikasi'] || '';
+    document.getElementById('edit-user-qty').value = item['Quantity Order'] || 0;
+    document.getElementById('edit-user-satuan').value = item['Satuan'] || 'PCS';
+    document.getElementById('edit-user-line').value = item['Nama Line'] || '';
 
-    <div id="modal-user-edit" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
-            <h3 class="font-black text-slate-800 mb-6 uppercase tracking-tight text-xl text-center">Edit Permintaan</h3>
-            <input type="hidden" id="edit-user-id">
-            <div class="space-y-4">
-                <div>
-                    <label class="text-[9px] font-black text-slate-400 ml-2 uppercase">Nama Barang</label>
-                    <input type="text" id="edit-user-nama" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="text-[9px] font-black text-slate-400 ml-2 uppercase">Spesifikasi</label>
-                    <input type="text" id="edit-user-spek" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div class="flex gap-2">
-                    <div class="w-2/3">
-                        <label class="text-[9px] font-black text-slate-400 ml-2 uppercase">Qty</label>
-                        <input type="number" id="edit-user-qty" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-semibold border-transparent">
-                    </div>
-                    <div class="w-1/3">
-                        <label class="text-[9px] font-black text-slate-400 ml-2 uppercase">Unit</label>
-                        <select id="edit-user-satuan" class="w-full px-2 py-3 bg-slate-50 rounded-2xl outline-none font-black text-[10px]">
-                            <option value="PCS">PCS</option><option value="ROLL">ROLL</option><option value="METER">METER</option><option value="SET">SET</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black text-slate-400 ml-2 uppercase">Nama Line</label>
-                    <select id="edit-user-line" class="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-black text-[10px]">
-                        <option value="Assy 1">Assy 1</option><option value="Assy 2">Assy 2</option><option value="Assy 3">Assy 3</option>
-                        <option value="Assy 4">Assy 4</option><option value="Assy 5">Assy 5</option><option value="Assy 6">Assy 6</option>
-                        <option value="Assy 7">Assy 7</option><option value="Assy 8">Assy 8</option><option value="Assy 9">Assy 9</option>
-                        <option value="Bending">Bending</option><option value="Spinning">Spinning</option>
-                        <option value="Kompressor">Kompressor</option><option value="Cooling Tower">Cooling Tower</option>
-                        <option value="Project">Project</option>
-                    </select>
-                </div>
-            </div>
-            <div class="flex gap-3 mt-8">
-                <button onclick="window.closeUserModal()" class="flex-1 py-4 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase">Batal</button>
-                <button id="btn-save-user" onclick="window.saveUserUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200">Simpan Perubahan</button>
-            </div>
-        </div>
-    </div>
+    modal.classList.remove('hidden');
+};
 
-    <script type="module" src="script.js"></script>
-</body>
-</html>
+window.closeUserModal = () => {
+    const modal = document.getElementById('modal-user-edit');
+    if(modal) modal.classList.add('hidden');
+}
+
+window.saveUserUpdate = async () => {
+    const id = document.getElementById('edit-user-id').value;
+    const btn = document.getElementById('btn-save-user');
+    if(!btn) return;
+    
+    btn.innerText = "SAVING..."; btn.disabled = true;
+
+    const payload = {
+        'Nama Barang': document.getElementById('edit-user-nama').value,
+        'Spesifikasi': document.getElementById('edit-user-spek').value,
+        'Quantity Order': parseInt(document.getElementById('edit-user-qty').value),
+        'Satuan': document.getElementById('edit-user-satuan').value,
+        'Nama Line': document.getElementById('edit-user-line').value
+    };
+
+    const { error } = await supabase.from('Order-sparepart').update(payload).eq('id', id);
+
+    if (error) {
+        alert("Gagal update user: " + error.message);
+    } else { 
+        window.closeUserModal(); 
+        fetchOrders(); 
+    }
+
+    btn.innerText = "SIMPAN PERUBAHAN"; btn.disabled = false;
+};
+
+// --- EVENTS ---
+document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
+document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
+
+window.logout = async () => { 
+    await supabase.auth.signOut(); 
+    window.location.href = 'login.html'; 
+};
+
+window.exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(localData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, "Sparepart_Report.xlsx");
+};
+
+// Start
+checkSession();
