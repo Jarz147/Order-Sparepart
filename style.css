@@ -1,107 +1,98 @@
 /* style.css */
 
-/* 1. Global Aesthetic */
+/* 1. Reset Total & Background Ceria */
 body {
-    background-color: #f0f2f5; /* Abu-abu ultra light agar elemen putih 'pop' */
-    color: #0f172a;
-    letter-spacing: -0.01em;
+    background: linear-gradient(135deg, #f6f8ff 0%, #e9eeff 100%) !important;
+    min-height: 100vh;
 }
 
-/* 2. Glassmorphism Header Tabel */
-.table-container {
-    max-height: 65vh;
-    overflow: auto;
-    border-radius: 0 0 1.5rem 1.5rem;
-    background: white;
-}
-
+/* 2. Header Tabel - Dibuat Sangat Kontras (Biru Gelap ke Ungu) */
 thead th {
-    position: sticky;
+    position: sticky !important;
     top: 0;
-    z-index: 40;
-    background: #ffffff !important;
-    color: #6366f1 !important; /* Warna Indigo untuk kesan ceria */
-    font-size: 10px;
-    font-weight: 900;
+    z-index: 50;
+    background: linear-gradient(90deg, #1e293b, #334155) !important; /* Biru Navy Tajam */
+    color: #38bdf8 !important; /* Teks Biru Neon */
+    font-weight: 900 !important;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 1.5rem 1rem;
-    border-bottom: 2px solid #6366f1; /* Garis aksen bawah */
+    letter-spacing: 2px;
+    border-bottom: 4px solid #6366f1 !important;
+    padding: 20px 10px !important;
 }
 
-/* 3. Scrollbar Minimalis */
-.table-container::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
-}
-.table-container::-webkit-scrollbar-thumb {
-    background: #6366f1;
-    border-radius: 10px;
-}
-
-/* 4. Form & Input "Clean & Sharp" */
+/* 3. Form Container - Efek Melayang */
 #form-container {
+    background: white !important;
+    border-radius: 30px !important;
     border: none !important;
-    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
-    border-radius: 2rem;
+    box-shadow: 0 20px 50px rgba(99, 102, 241, 0.1) !important;
+    transform: translateY(0);
+    transition: all 0.3s ease;
 }
 
+#form-container:hover {
+    box-shadow: 0 30px 60px rgba(99, 102, 241, 0.2) !important;
+}
+
+/* 4. Input Modern - Border Neon saat Fokus */
 input, select {
-    border: 1px solid #e2e8f0 !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    background: #f8fafc !important;
+    border: 2px solid #e2e8f0 !important;
+    border-radius: 15px !important;
+    padding: 12px 20px !important;
 }
 
 input:focus, select:focus {
     border-color: #6366f1 !important;
-    background-color: #f8faff !important;
-    transform: scale(1.01);
+    background: white !important;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.2) !important;
+    outline: none;
 }
 
-/* 5. Baris Tabel Modern */
+/* 5. Baris Tabel - Zebra Ceria */
 tbody tr {
-    border-bottom: 1px solid #f1f5f9;
+    background: white !important;
+    transition: all 0.2s ease;
+}
+
+tbody tr:nth-child(even) {
+    background: #fcfdff !important;
 }
 
 tbody tr:hover {
-    background-color: #f8faff !important; /* Biru sangat muda saat hover */
+    background: #f1f5ff !important; /* Warna saat mouse lewat */
+    transform: scale(1.005);
+    z-index: 10;
 }
 
-tbody td {
-    background-color: transparent !important; /* Ikut warna tr */
-}
-
-/* 6. Button "Neon Ceria" */
+/* 6. Tombol Kirim - Efek Gradasi & Glow */
 #btn-submit, #btn-save-user {
-    background: #6366f1 !important;
-    transition: all 0.3s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    background: linear-gradient(90deg, #6366f1, #a855f7) !important;
+    border: none !important;
+    color: white !important;
+    font-weight: 900 !important;
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3) !important;
 }
 
-#btn-submit:hover, #btn-save-user:hover {
-    background: #4f46e5 !important;
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
-    transform: translateY(-2px);
+#btn-submit:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 15px 30px rgba(99, 102, 241, 0.4) !important;
 }
 
-/* 7. Modal Futuristik Blur */
+/* 7. Modal - Efek Glassmorphism (Blur Latar) */
 #modal-admin, #modal-user-edit {
-    backdrop-filter: blur(12px);
-    background-color: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px) !important;
+    background: rgba(15, 23, 42, 0.4) !important;
 }
 
 #modal-admin > div, #modal-user-edit > div {
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
-    animation: slideUp 0.4s ease-out;
+    border-radius: 40px !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
 }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+/* 8. Scrollbar Neon */
+.table-container::-webkit-scrollbar { width: 8px; }
+.table-container::-webkit-scrollbar-thumb {
+    background: #6366f1;
+    border-radius: 10px;
 }
-
-/* 8. Status Badges yang Lebih "Pop" */
-.bg-emerald-100 { background-color: #dcfce7 !important; color: #15803d !important; border: 1px solid #bbf7d0; }
-.bg-blue-100 { background-color: #dbeafe !important; color: #1d4ed8 !important; border: 1px solid #bfdbfe; }
-.bg-rose-100 { background-color: #ffe4e6 !important; color: #be123c !important; border: 1px solid #fecdd3; }
