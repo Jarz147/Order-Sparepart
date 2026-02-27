@@ -1,82 +1,107 @@
 /* style.css */
 
-/* 1. Reset & Global Transition */
-tr {
-    transition: background-color 0.2s ease;
+/* 1. Global Aesthetic */
+body {
+    background-color: #f0f2f5; /* Abu-abu ultra light agar elemen putih 'pop' */
+    color: #0f172a;
+    letter-spacing: -0.01em;
 }
 
-/* 2. Container Tabel & Freeze Header Logic */
+/* 2. Glassmorphism Header Tabel */
 .table-container {
-    max-height: 65vh; /* Membatasi tinggi tabel agar header bisa freeze */
-    overflow-y: auto;
-    overflow-x: auto;
-    position: relative;
+    max-height: 65vh;
+    overflow: auto;
     border-radius: 0 0 1.5rem 1.5rem;
+    background: white;
 }
 
-/* Membuat header tabel tetap di atas (Sticky) */
 thead th {
     position: sticky;
     top: 0;
-    z-index: 30; /* Pastikan di atas konten body */
-    background-color: #f8fafc !important; /* Warna bg-slate-50 */
-    box-shadow: inset 0 -2px 0 #e2e8f0; /* Garis bawah header lebih tegas */
-    padding-top: 1.25rem;
-    padding-bottom: 1.25rem;
+    z-index: 40;
+    background: #ffffff !important;
+    color: #6366f1 !important; /* Warna Indigo untuk kesan ceria */
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 1.5rem 1rem;
+    border-bottom: 2px solid #6366f1; /* Garis aksen bawah */
 }
 
-/* 3. Custom Scrollbar Modern (Chrome, Safari, Edge) */
+/* 3. Scrollbar Minimalis */
 .table-container::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-.table-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
+    width: 5px;
+    height: 5px;
 }
 .table-container::-webkit-scrollbar-thumb {
-    background: #cbd5e1; /* Warna abu-abu soft */
+    background: #6366f1;
     border-radius: 10px;
 }
-.table-container::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8; /* Lebih gelap saat disentuh */
+
+/* 4. Form & Input "Clean & Sharp" */
+#form-container {
+    border: none !important;
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
+    border-radius: 2rem;
 }
 
-/* 4. Modal & Animasi */
-#modal-admin:not(.hidden) {
-    display: flex; /* Memastikan modal di tengah */
-    animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+input, select {
+    border: 1px solid #e2e8f0 !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-@keyframes fadeIn {
-    from { 
-        opacity: 0; 
-        backdrop-filter: blur(0px);
-        transform: translateY(10px); 
-    }
-    to { 
-        opacity: 1; 
-        backdrop-filter: blur(4px);
-        transform: translateY(0); 
-    }
+input:focus, select:focus {
+    border-color: #6366f1 !important;
+    background-color: #f8faff !important;
+    transform: scale(1.01);
 }
 
-/* 5. Efek Interaksi Logo & Button */
-img[alt="Logo"] {
-    transition: transform 0.3s ease;
-}
-img[alt="Logo"]:hover {
-    transform: scale(1.05);
+/* 5. Baris Tabel Modern */
+tbody tr {
+    border-bottom: 1px solid #f1f5f9;
 }
 
-.btn-hover-effect {
-    transition: all 0.2s ease;
-}
-.btn-hover-effect:active {
-    transform: scale(0.95);
+tbody tr:hover {
+    background-color: #f8faff !important; /* Biru sangat muda saat hover */
 }
 
-/* 6. Fix tampilan teks agar tidak tembus saat scroll */
 tbody td {
-    background-color: white;
+    background-color: transparent !important; /* Ikut warna tr */
 }
+
+/* 6. Button "Neon Ceria" */
+#btn-submit, #btn-save-user {
+    background: #6366f1 !important;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+#btn-submit:hover, #btn-save-user:hover {
+    background: #4f46e5 !important;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+    transform: translateY(-2px);
+}
+
+/* 7. Modal Futuristik Blur */
+#modal-admin, #modal-user-edit {
+    backdrop-filter: blur(12px);
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+#modal-admin > div, #modal-user-edit > div {
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+    animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 8. Status Badges yang Lebih "Pop" */
+.bg-emerald-100 { background-color: #dcfce7 !important; color: #15803d !important; border: 1px solid #bbf7d0; }
+.bg-blue-100 { background-color: #dbeafe !important; color: #1d4ed8 !important; border: 1px solid #bfdbfe; }
+.bg-rose-100 { background-color: #ffe4e6 !important; color: #be123c !important; border: 1px solid #fecdd3; }
