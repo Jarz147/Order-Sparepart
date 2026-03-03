@@ -69,7 +69,7 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'Satuan': document.getElementById('satuan').value,
         'Nama Mesin': document.getElementById('nama_mesin').value,
         'Nama Line': document.getElementById('nama_line').value,
-        'Project': document.getElementById('project').value,
+        'Project': document.getElementById('detail_pesanan').value,
         'PIC Order': document.getElementById('pic_order').value,
         'gambar': fotoUrl,
         'Status': 'Pending'
@@ -207,7 +207,7 @@ window.openUserEditModal = (id) => {
     document.getElementById('edit-user-qty').value = item['Quantity Order'] || 0;
     document.getElementById('edit-user-satuan').value = item['Satuan'] || 'PCS';
     document.getElementById('edit-user-line').value = item['Nama Line'] || '';
-    document.getElementById('edit-user-project').value = item['Project'] || '';
+    document.getElementById('edit-user-detail-pesanan').value = item['Project'] || '';
 
     modal.classList.remove('hidden');
 };
@@ -230,7 +230,7 @@ window.saveUserUpdate = async () => {
         'Quantity Order': parseInt(document.getElementById('edit-user-qty').value),
         'Satuan': document.getElementById('edit-user-satuan').value,
         'Nama Line': document.getElementById('edit-user-line').value,
-        'Project': document.getElementById('edit-user-project').value
+        'Project': document.getElementById('edit-user-detail-pesanan').value
     };
 
     const { error } = await supabase.from('Order-sparepart').update(payload).eq('id', id);
@@ -255,7 +255,15 @@ window.logout = async () => {
 };
 
 window.exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(localData);
+    const dataForExport = localData.map(item => {
+        const { Project, ...rest } = item;
+        return { 
+            ...rest,
+            'Detail Pesanan': Project
+        };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(dataForExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
     XLSX.writeFile(wb, "Sparepart_Report.xlsx");
