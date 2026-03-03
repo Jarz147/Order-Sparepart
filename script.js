@@ -69,6 +69,7 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'Satuan': document.getElementById('satuan').value,
         'Nama Mesin': document.getElementById('nama_mesin').value,
         'Nama Line': document.getElementById('nama_line').value,
+        'Project': document.getElementById('project').value,
         'PIC Order': document.getElementById('pic_order').value,
         'gambar': fotoUrl,
         'Status': 'Pending'
@@ -92,6 +93,7 @@ function applyFiltersAndSort() {
         (i['Nama Barang']?.toLowerCase().includes(term)) || 
         (i['Nama Mesin']?.toLowerCase().includes(term)) ||
         (i['PIC Order']?.toLowerCase().includes(term)) ||
+        (i['Project']?.toLowerCase().includes(term)) ||
         (i['Status']?.toLowerCase().includes(term))
     );
 
@@ -150,7 +152,7 @@ function renderTable(data) {
                     <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
                 </td>
                 <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
-                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
+                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span>${i['Project'] ? `<br><span class="text-indigo-500 font-semibold">Detail Pesanan: ${i['Project']}</span>` : ''}</td>
                 <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
                 <td class="px-6 py-5 text-center">
                     <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
@@ -204,6 +206,7 @@ window.openUserEditModal = (id) => {
     document.getElementById('edit-user-qty').value = item['Quantity Order'] || 0;
     document.getElementById('edit-user-satuan').value = item['Satuan'] || 'PCS';
     document.getElementById('edit-user-line').value = item['Nama Line'] || '';
+    document.getElementById('edit-user-project').value = item['Project'] || '';
 
     modal.classList.remove('hidden');
 };
@@ -225,7 +228,8 @@ window.saveUserUpdate = async () => {
         'Spesifikasi': document.getElementById('edit-user-spek').value,
         'Quantity Order': parseInt(document.getElementById('edit-user-qty').value),
         'Satuan': document.getElementById('edit-user-satuan').value,
-        'Nama Line': document.getElementById('edit-user-line').value
+        'Nama Line': document.getElementById('edit-user-line').value,
+        'Project': document.getElementById('edit-user-project').value
     };
 
     const { error } = await supabase.from('Order-sparepart').update(payload).eq('id', id);
