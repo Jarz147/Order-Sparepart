@@ -152,7 +152,8 @@ function renderTable(data) {
                     <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
                 </td>
                 <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
-                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span>${i['Project'] ? `<br><span class="text-indigo-500 font-semibold">Detail Pesanan: ${i['Project']}</span>` : ''}</td>
+                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
+                <td class="px-6 py-5 text-[10px] text-slate-600 max-w-[200px]">${i['Project'] ? i['Project'] : '-'}</td>
                 <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
                 <td class="px-6 py-5 text-center">
                     <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
