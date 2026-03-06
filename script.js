@@ -131,13 +131,16 @@ function renderTable(data) {
     const isUserEdit = currentEmail.toLowerCase() === USER_EDIT_EMAIL.toLowerCase();
 
     body.innerHTML = data.map((i, index) => {
+        const status = String(i.Status || i.status || '').trim();
+        const isSelesai = status.toLowerCase() === 'selesai';
+        const partInstalled = !!(i.part_installed);
         const fotoHtml = i.gambar 
             ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
             : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[7px] text-slate-300 italic">No Pic</div>`;
 
         let actionBtn = '<span class="text-[8px] text-slate-300 font-bold uppercase tracking-tighter">View Only</span>';
         if (isAdmin) {
-            actionBtn = `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${i.Status}')" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-[9px] hover:bg-indigo-100">EDIT ADMIN</button>`;
+            actionBtn = `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${status || i.Status}')" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-[9px] hover:bg-indigo-100">EDIT ADMIN</button>`;
         } else if (isUserEdit) {
             actionBtn = `<button onclick="window.openUserEditModal('${i.id}')" class="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 text-lg leading-none" title="Edit Detail">✏️</button>`;
         }
@@ -158,13 +161,13 @@ function renderTable(data) {
                 <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
                 <td class="px-6 py-5 text-center">
                     <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
-                    ${i.Status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : i.Status === 'On Process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
-                        ${i.Status || 'Pending'}
+                    ${isSelesai ? 'bg-emerald-100 text-emerald-700' : status.toLowerCase() === 'on process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
+                        ${status || 'Pending'}
                     </span>
                 </td>
                 <td class="px-6 py-5 text-center">
-                    ${i.Status === 'Selesai'
-                        ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${i.part_installed ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${i.part_installed ? 'INSTALLED' : 'NOT INSTALLED'}</button>`
+                    ${isSelesai
+                        ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button>`
                         : '<span class="text-[9px] text-slate-300 font-bold uppercase">—</span>'}
                 </td>
                 <td class="px-6 py-5 text-center">${actionBtn}</td>
