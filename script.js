@@ -72,7 +72,7 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'Project': document.getElementById('detail_pesanan').value,
         'PIC Order': document.getElementById('pic_order').value,
         'gambar': fotoUrl,
-        'Status': 'Pending',
+        'Status': 'Belum Di Proses',
         'part_installed': false
     };
 
@@ -132,7 +132,7 @@ function renderTable(data) {
 
     body.innerHTML = data.map((i, index) => {
         const status = String(i.Status || i.status || '').trim();
-        const isSelesai = status.toLowerCase() === 'selesai';
+        const isSelesai = status.toLowerCase() === 'selesai' || status.toLowerCase() === 'sudah datang';
         const partInstalled = !!(i.part_installed);
         const fotoHtml = i.gambar 
             ? `<img src="${i.gambar}" class="w-10 h-10 object-cover rounded-lg shadow-sm cursor-pointer hover:scale-150 transition-transform" onclick="window.open('${i.gambar}')">`
@@ -162,7 +162,7 @@ function renderTable(data) {
                 <td class="px-6 py-5 text-center">
                     <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
                     ${isSelesai ? 'bg-emerald-100 text-emerald-700' : status.toLowerCase() === 'on process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
-                        ${status || 'Pending'}
+                        ${(status === 'Selesai' || status === 'Sudah Datang') ? 'Sudah Datang' : (status === 'Pending' || status === 'Belum Di Proses' || status === 'Belum Di Input' || !status) ? 'Belum Di Proses' : status}
                     </span>
                 </td>
                 <td class="px-6 py-5 text-center">
@@ -181,7 +181,8 @@ window.openModal = (id, pr, po, status) => {
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-pr').value = pr;
     document.getElementById('edit-po').value = po;
-    document.getElementById('edit-status').value = status;
+    const norm = (status === 'Selesai' ? 'Sudah Datang' : (status === 'Pending' || status === 'Belum Di Input' ? 'Belum Di Proses' : status));
+    document.getElementById('edit-status').value = norm;
     document.getElementById('modal-admin')?.classList.remove('hidden');
 };
 window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
@@ -197,7 +198,7 @@ window.saveAdminUpdate = async () => {
     else alert("Gagal update!");
 };
 
-// --- PART INSTALLED TOGGLE (only when Status = Selesai; one click = INSTALLED ↔ NOT INSTALLED, saved to DB) ---
+// --- PART INSTALLED TOGGLE (only when Status = Sudah Datang; one click = INSTALLED ↔ NOT INSTALLED, saved to DB) ---
 window.togglePartInstalled = async (id) => {
     const row = localData.find(i => String(i.id) === String(id));
     if (!row) return;
