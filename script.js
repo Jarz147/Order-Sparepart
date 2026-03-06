@@ -72,7 +72,8 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'Project': document.getElementById('detail_pesanan').value,
         'PIC Order': document.getElementById('pic_order').value,
         'gambar': fotoUrl,
-        'Status': 'Pending'
+        'Status': 'Pending',
+        'part_installed': false
     };
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
@@ -161,6 +162,11 @@ function renderTable(data) {
                         ${i.Status || 'Pending'}
                     </span>
                 </td>
+                <td class="px-6 py-5 text-center">
+                    ${i.Status === 'Selesai'
+                        ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${i.part_installed ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${i.part_installed ? 'INSTALLED' : 'NOT INSTALLED'}</button>`
+                        : '<span class="text-[9px] text-slate-300 font-bold uppercase">—</span>'}
+                </td>
                 <td class="px-6 py-5 text-center">${actionBtn}</td>
             </tr>
         `;
@@ -186,6 +192,19 @@ window.saveAdminUpdate = async () => {
     }).eq('id', id);
     if (!error) { window.closeModal(); fetchOrders(); }
     else alert("Gagal update!");
+};
+
+// --- PART INSTALLED TOGGLE (only when Status = Selesai; one click = INSTALLED ↔ NOT INSTALLED, saved to DB) ---
+window.togglePartInstalled = async (id) => {
+    const row = localData.find(i => String(i.id) === String(id));
+    if (!row) return;
+    const next = !row.part_installed;
+    const { error } = await supabase.from('Order-sparepart').update({ part_installed: next }).eq('id', id);
+    if (error) {
+        alert("Gagal update part installed: " + (error.message || ""));
+        return;
+    }
+    await fetchOrders();
 };
 
 // --- MODAL USER LOGIC (DIPERBAIKI) ---
