@@ -38,7 +38,8 @@
                 <img src="TEST 1 C.png" alt="Logo" class="h-16 w-auto object-contain cursor-pointer transition-transform hover:rotate-3" onclick="location.reload()"> 
             </div>
 
-            <div class="flex gap-2 justify-center md:justify-end w-full md:w-1/3">
+            <div class="flex gap-2 justify-center md:justify-end w-full md:w-1/3 flex-wrap">
+                <button id="install-btn" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9px] font-black px-4 py-2.5 rounded-xl border border-slate-200 uppercase transition-all" onclick="window.toggleInstall()">UNINSTALLED</button>
                 <div id="admin-tools" class="hidden flex gap-2">
                     <button onclick="window.exportToExcel()" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black px-4 py-2.5 rounded-xl shadow-md uppercase transition-all">Export Report</button>
                 </div>
@@ -125,6 +126,7 @@
                             <th class="px-6 py-5">Detail Pesanan</th>
                             <th class="px-6 py-5">No. PR/PO</th>
                             <th class="px-6 py-5 text-center">Status</th>
+                            <th class="px-6 py-5 text-center">Part Instal</th>
                             <th class="px-6 py-5 text-center">Aksi</th>
                         </tr>
                     </thead>
