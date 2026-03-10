@@ -279,10 +279,13 @@ window.logout = async () => {
 
 window.exportToExcel = () => {
     const dataForExport = localData.map(item => {
-        const { Project, ...rest } = item;
+        const { Project, part_installed, ...rest } = item;
         return { 
             ...rest,
-            'Detail Pesanan': Project
+            'Detail Pesanan': Project,
+            'Status Part Instal': item.Status === 'Sudah Datang' || (item.Status || '').toLowerCase() === 'selesai'
+                ? (part_installed ? 'Installed' : 'Not Installed')
+                : '—'
         };
     });
 
