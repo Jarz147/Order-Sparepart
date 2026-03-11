@@ -140,7 +140,7 @@ function renderTable(data) {
 
         let actionBtn = '<span class="text-[8px] text-slate-300 font-bold uppercase tracking-tighter">View Only</span>';
         if (isAdmin) {
-            actionBtn = `<button onclick="window.openModal('${i.id}','${i.PR || ''}','${i.PO || ''}','${status || i.Status}')" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-[9px] hover:bg-indigo-100">EDIT ADMIN</button>`;
+            actionBtn = `<button onclick="window.openModal('${i.id}')" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-[9px] hover:bg-indigo-100">EDIT ADMIN</button>`;
         } else if (isUserEdit) {
             actionBtn = `<button onclick="window.openUserEditModal('${i.id}')" class="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 text-lg leading-none" title="Edit Detail">✏️</button>`;
         }
@@ -165,6 +165,8 @@ function renderTable(data) {
                         ${(status === 'Selesai' || status === 'Sudah Datang') ? 'Sudah Datang' : (status === 'Pending' || status === 'Belum Di Proses' || status === 'Belum Di Input' || !status) ? 'Belum Di Proses' : status}
                     </span>
                 </td>
+                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.status_updated_at ? new Date(i.status_updated_at).toLocaleString('id-ID') : '—'}</td>
+                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.pr_po_updated_at ? new Date(i.pr_po_updated_at).toLocaleString('id-ID') : '—'}</td>
                 <td class="px-6 py-5 text-center">
                     ${isSelesai
                         ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button>`
@@ -177,23 +179,40 @@ function renderTable(data) {
 }
 
 // --- MODAL ADMIN LOGIC ---
-window.openModal = (id, pr, po, status) => {
+window.openModal = (id) => {
+    const row = localData.find(r => String(r.id) === String(id));
+    if (!row) return;
     document.getElementById('edit-id').value = id;
-    document.getElementById('edit-pr').value = pr;
-    document.getElementById('edit-po').value = po;
+    document.getElementById('edit-pr').value = row.PR || '';
+    document.getElementById('edit-po').value = row.PO || '';
+    const status = String(row.Status || row.status || '').trim();
     const norm = (status === 'Selesai' ? 'Sudah Datang' : (status === 'Pending' || status === 'Belum Di Input' ? 'Belum Di Proses' : status));
-    document.getElementById('edit-status').value = norm;
+    document.getElementById('edit-status').value = norm || 'Belum Di Proses';
     document.getElementById('modal-admin')?.classList.remove('hidden');
 };
 window.closeModal = () => document.getElementById('modal-admin')?.classList.add('hidden');
 
 window.saveAdminUpdate = async () => {
     const id = document.getElementById('edit-id').value;
-    const { error } = await supabase.from('Order-sparepart').update({
-        'PR': document.getElementById('edit-pr').value,
-        'PO': document.getElementById('edit-po').value,
-        'Status': document.getElementById('edit-status').value
-    }).eq('id', id);
+    const row = localData.find(r => String(r.id) === String(id));
+    const newPr = (document.getElementById('edit-pr').value || '').trim();
+    const newPo = (document.getElementById('edit-po').value || '').trim();
+    const newStatus = document.getElementById('edit-status').value;
+    const now = new Date().toISOString();
+
+    const payload = {
+        'PR': newPr,
+        'PO': newPo,
+        'Status': newStatus
+    };
+    if (row) {
+        const statusChanged = (String(row.Status || '').trim() !== String(newStatus).trim());
+        const prPoChanged = (String(row.PR || '').trim() !== newPr || String(row.PO || '').trim() !== newPo);
+        if (statusChanged) payload.status_updated_at = now;
+        if (prPoChanged) payload.pr_po_updated_at = now;
+    }
+
+    const { error } = await supabase.from('Order-sparepart').update(payload).eq('id', id);
     if (!error) { window.closeModal(); fetchOrders(); }
     else alert("Gagal update!");
 };
@@ -279,13 +298,16 @@ window.logout = async () => {
 
 window.exportToExcel = () => {
     const dataForExport = localData.map(item => {
-        const { Project, part_installed, ...rest } = item;
+        const { Project, part_installed, status_updated_at, pr_po_updated_at, ...rest } = item;
+        const fmt = (t) => t ? new Date(t).toLocaleString('id-ID') : '—';
         return { 
             ...rest,
             'Detail Pesanan': Project,
             'Status Part Instal': item.Status === 'Sudah Datang' || (item.Status || '').toLowerCase() === 'selesai'
                 ? (part_installed ? 'Installed' : 'Not Installed')
-                : '—'
+                : '—',
+            'Tgl Ubah Status': fmt(status_updated_at),
+            'Tgl Input PR/PO': fmt(pr_po_updated_at)
         };
     });
 
