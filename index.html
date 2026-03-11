@@ -102,35 +102,27 @@
                 <input type="text" id="search-input" placeholder="Cari barang, mesin, PIC, detail pesanan, atau status..." class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none text-sm font-semibold italic focus:ring-2 focus:ring-indigo-500 transition-all">
                 <span class="absolute left-4 top-3.5 opacity-30 text-lg">🔍</span>
             </div>
-            <select id="sort-select" class="h-full px-5 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase text-slate-500 cursor-pointer shadow-sm outline-none">
-                <option value="newest">⏰ Terbaru (Newest)</option>
-                <option value="oldest">⌛ Terlama (Oldest)</option>
-                <option value="status">📊 Status (Grup)</option>
-                <option value="line">🏭 Nama Line (A-Z)</option>
-                <option value="pic">👤 PIC Request (A-Z)</option>
-                <option value="urutan">🔠 Urutan Barang (A-Z)</option>
-            </select>
+            <div class="flex items-center gap-2">
+                <select id="sort-select" class="h-full px-5 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase text-slate-500 cursor-pointer shadow-sm outline-none">
+                    <option value="newest">⏰ Terbaru (Newest)</option>
+                    <option value="oldest">⌛ Terlama (Oldest)</option>
+                    <option value="status">📊 Status (Grup)</option>
+                    <option value="line">🏭 Nama Line (A-Z)</option>
+                    <option value="pic">👤 PIC Request (A-Z)</option>
+                    <option value="urutan">🔠 Urutan Barang (A-Z)</option>
+                </select>
+                <button onclick="window.openColumnSettings()" class="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase text-slate-500 cursor-pointer shadow-sm hover:bg-slate-50">
+                    Atur Kolom
+                </button>
+            </div>
         </div>
 
         <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="table-container">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                            <th class="px-4 py-5 text-center">No</th>
-                            <th class="px-4 py-5 text-center">Foto</th>
-                            <th class="px-6 py-5 text-center">Tgl</th>
-                            <th class="px-6 py-5">Detail Barang</th>
-                            <th class="px-6 py-5 text-center">Qty</th>
-                            <th class="px-6 py-5">Mesin / Line</th>
-                            <th class="px-6 py-5">Detail Pesanan</th>
-                            <th class="px-6 py-5">No. PR/PO</th>
-                            <th class="px-6 py-5 text-center">Status</th>
-                            <th class="px-6 py-5 text-center">Tgl Ubah Status</th>
-                            <th class="px-6 py-5 text-center">Tgl Input PR</th>
-                            <th class="px-6 py-5 text-center">Tgl Input PO</th>
-                            <th class="px-6 py-5 text-center">Part Instal</th>
-                            <th class="px-6 py-5 text-center">Aksi</th>
+                        <tr id="table-header-row" class="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                            <!-- Header kolom akan di-generate dari script.js -->
                         </tr>
                     </thead>
                     <tbody id="data-body" class="divide-y divide-slate-50 text-sm font-semibold text-slate-700">
@@ -205,6 +197,21 @@
             <div class="flex gap-3 mt-8">
                 <button onclick="window.closeUserModal()" class="flex-1 py-4 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase hover:bg-slate-200 transition-all">Batal</button>
                 <button id="btn-save-user" onclick="window.saveUserUpdate()" class="flex-1 py-4 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pengaturan Kolom Tabel -->
+    <div id="modal-column-settings" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
+            <h3 class="font-black text-slate-800 mb-6 uppercase tracking-tight text-xl text-center">Atur Urutan Kolom</h3>
+            <p class="text-[10px] text-slate-400 text-center mb-4">Geser dengan tombol atas/bawah untuk mengubah urutan kolom.</p>
+            <div id="column-list" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+                <!-- List kolom diisi dari script.js -->
+            </div>
+            <div class="flex gap-3 mt-8">
+                <button onclick="window.closeColumnSettings()" class="flex-1 py-3 bg-slate-100 font-black rounded-2xl text-slate-400 text-[10px] uppercase hover:bg-slate-200 transition-all">Batal</button>
+                <button onclick="window.saveColumnSettings()" class="flex-1 py-3 bg-indigo-600 font-black rounded-2xl text-white text-[10px] uppercase shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">Simpan</button>
             </div>
         </div>
     </div>
