@@ -169,7 +169,7 @@ function renderTable(data) {
                 <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.pr_po_updated_at ? new Date(i.pr_po_updated_at).toLocaleString('id-ID') : '—'}</td>
                 <td class="px-6 py-5 text-center">
                     ${isSelesai
-                        ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button>`
+                        ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button>${partInstalled && i.part_installed_at ? `<div class="text-[8px] text-slate-500 mt-1" title="Tanggal perubahan dari NOT INSTALLED ke INSTALLED">${new Date(i.part_installed_at).toLocaleString('id-ID')}</div>` : ''}`
                         : '<span class="text-[9px] text-slate-300 font-bold uppercase">—</span>'}
                 </td>
                 <td class="px-6 py-5 text-center">${actionBtn}</td>
@@ -222,7 +222,8 @@ window.togglePartInstalled = async (id) => {
     const row = localData.find(i => String(i.id) === String(id));
     if (!row) return;
     const next = !row.part_installed;
-    const { error } = await supabase.from('Order-sparepart').update({ part_installed: next }).eq('id', id);
+    const payload = { part_installed: next, part_installed_at: next ? new Date().toISOString() : null };
+    const { error } = await supabase.from('Order-sparepart').update(payload).eq('id', id);
     if (error) {
         alert("Gagal update part installed: " + (error.message || ""));
         return;
@@ -298,7 +299,7 @@ window.logout = async () => {
 
 window.exportToExcel = () => {
     const dataForExport = localData.map(item => {
-        const { Project, part_installed, status_updated_at, pr_po_updated_at, ...rest } = item;
+        const { Project, part_installed, part_installed_at, status_updated_at, pr_po_updated_at, ...rest } = item;
         const fmt = (t) => t ? new Date(t).toLocaleString('id-ID') : '—';
         return { 
             ...rest,
@@ -307,7 +308,8 @@ window.exportToExcel = () => {
                 ? (part_installed ? 'Installed' : 'Not Installed')
                 : '—',
             'Tgl Ubah Status': fmt(status_updated_at),
-            'Tgl Input PR/PO': fmt(pr_po_updated_at)
+            'Tgl Input PR/PO': fmt(pr_po_updated_at),
+            'Tgl jadi Installed': fmt(part_installed_at)
         };
     });
 
