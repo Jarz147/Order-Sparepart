@@ -9,6 +9,49 @@ const USER_EDIT_EMAIL = "user@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 
+// --- PENGATURAN KOLOM TABEL ---
+const DEFAULT_COLUMNS = [
+    { id: 'no', label: 'No', thClass: 'px-4 py-5 text-center', tdClass: 'px-4 py-5 text-center text-[10px] font-bold text-slate-400' },
+    { id: 'foto', label: 'Foto', thClass: 'px-4 py-5 text-center', tdClass: 'px-4 py-5 flex justify-center' },
+    { id: 'tanggal_order', label: 'Tanggal Order', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-[10px] text-slate-400 font-mono text-center' },
+    { id: 'detail_barang', label: 'Detail Barang', thClass: 'px-6 py-5', tdClass: 'px-6 py-5' },
+    { id: 'qty', label: 'Qty', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center font-black text-indigo-600 text-sm' },
+    { id: 'mesin_line', label: 'Mesin / Line', thClass: 'px-6 py-5', tdClass: 'px-6 py-5 text-[10px] uppercase text-slate-500 font-bold' },
+    { id: 'detail_pesanan', label: 'Detail Pesanan', thClass: 'px-6 py-5', tdClass: 'px-6 py-5 text-[10px] text-slate-600 max-w-[200px]' },
+    { id: 'pr_po', label: 'No. PR/PO', thClass: 'px-6 py-5', tdClass: 'px-6 py-5 text-[10px] text-slate-500 font-mono' },
+    { id: 'status', label: 'Status', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center' },
+    { id: 'tgl_status', label: 'Tgl Ubah Status', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center text-[9px] text-slate-500 font-mono' },
+    { id: 'tgl_pr', label: 'Tgl Input PR', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center text-[9px] text-slate-500 font-mono' },
+    { id: 'tgl_po', label: 'Tgl Input PO', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center text-[9px] text-slate-500 font-mono' },
+    { id: 'part_instal', label: 'Part Instal', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center' },
+    { id: 'aksi', label: 'Aksi', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center' }
+];
+
+const COLUMN_KEY = 'order-sparepart-column-order-v1';
+
+function getColumnOrder() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(COLUMN_KEY) || '[]');
+        const validIds = new Set(DEFAULT_COLUMNS.map(c => c.id));
+        const filtered = stored.filter(id => validIds.has(id));
+        // Tambah kolom baru yang belum ada di localStorage (jaga kompatibilitas)
+        DEFAULT_COLUMNS.forEach(c => { if (!filtered.includes(c.id)) filtered.push(c.id); });
+        return filtered.length ? filtered : DEFAULT_COLUMNS.map(c => c.id);
+    } catch {
+        return DEFAULT_COLUMNS.map(c => c.id);
+    }
+}
+
+function setColumnOrder(order) {
+    localStorage.setItem(COLUMN_KEY, JSON.stringify(order));
+}
+
+function getColumnDefsInOrder() {
+    const order = getColumnOrder();
+    const map = Object.fromEntries(DEFAULT_COLUMNS.map(c => [c.id, c]));
+    return order.map(id => map[id]).filter(Boolean);
+}
+
 // --- SESSION CHECK ---
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -126,6 +169,16 @@ function applyFiltersAndSort() {
 function renderTable(data) {
     const body = document.getElementById('data-body');
     if(!body) return;
+
+    const columnDefs = getColumnDefsInOrder();
+
+    // Render header dinamis
+    const headerRow = document.getElementById('table-header-row');
+    if (headerRow) {
+        headerRow.innerHTML = columnDefs.map(col => 
+            `<th class="${col.thClass}">${col.label}</th>`
+        ).join('');
+    }
     
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
     const isUserEdit = currentEmail.toLowerCase() === USER_EDIT_EMAIL.toLowerCase();
@@ -145,35 +198,39 @@ function renderTable(data) {
             actionBtn = `<button onclick="window.openUserEditModal('${i.id}')" class="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 text-lg leading-none" title="Edit Detail">✏️</button>`;
         }
 
+        const cells = {
+            no: index + 1,
+            foto: fotoHtml,
+            tanggal_order: new Date(i.created_at).toLocaleDateString('id-ID'),
+            detail_barang: `
+                <div class="text-slate-800 font-bold text-sm uppercase">${i['Nama Barang']}</div>
+                <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
+                <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
+            `,
+            qty: `${i['Quantity Order']} ${i.Satuan}`,
+            mesin_line: `${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span>`,
+            detail_pesanan: i['Project'] ? i['Project'] : '-',
+            pr_po: `PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}`,
+            status: `
+                <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
+                ${isSelesai ? 'bg-emerald-100 text-emerald-700' : status.toLowerCase() === 'on process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
+                    ${(status === 'Selesai' || status === 'Sudah Datang') ? 'Sudah Datang' : (status === 'Pending' || status === 'Belum Di Proses' || status === 'Belum Di Input' || !status) ? 'Belum Di Proses' : status}
+                </span>
+            `,
+            tgl_status: i.status_updated_at ? new Date(i.status_updated_at).toLocaleString('id-ID') : '—',
+            tgl_pr: i.pr_updated_at || i.pr_po_updated_at ? new Date(i.pr_updated_at || i.pr_po_updated_at).toLocaleString('id-ID') : '—',
+            tgl_po: i.po_updated_at || i.pr_po_updated_at ? new Date(i.po_updated_at || i.pr_po_updated_at).toLocaleString('id-ID') : '—',
+            part_instal: isSelesai
+                ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button>${partInstalled && i.part_installed_at ? `<div class="text-[8px] text-slate-500 mt-1" title="Tanggal perubahan dari NOT INSTALLED ke INSTALLED">${new Date(i.part_installed_at).toLocaleString('id-ID')}</div>` : ''}`
+                : '<span class="text-[9px] text-slate-300 font-bold uppercase">—</span>',
+            aksi: actionBtn
+        };
+
+        const columnDefs = getColumnDefsInOrder();
+
         return `
             <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
-                <td class="px-4 py-5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
-                <td class="px-4 py-5 flex justify-center">${fotoHtml}</td>
-                <td class="px-6 py-5 text-[10px] text-slate-400 font-mono text-center">${new Date(i.created_at).toLocaleDateString('id-ID')}</td>
-                <td class="px-6 py-5">
-                    <div class="text-slate-800 font-bold text-sm uppercase">${i['Nama Barang']}</div>
-                    <div class="text-[10px] text-slate-400 italic">${i.Spesifikasi || '-'}</div>
-                    <div class="text-[9px] text-indigo-500 font-bold mt-1 uppercase italic">PIC: ${i['PIC Order'] || '-'}</div>
-                </td>
-                <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
-                <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
-                <td class="px-6 py-5 text-[10px] text-slate-600 max-w-[200px]">${i['Project'] ? i['Project'] : '-'}</td>
-                <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
-                <td class="px-6 py-5 text-center">
-                    <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
-                    ${isSelesai ? 'bg-emerald-100 text-emerald-700' : status.toLowerCase() === 'on process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
-                        ${(status === 'Selesai' || status === 'Sudah Datang') ? 'Sudah Datang' : (status === 'Pending' || status === 'Belum Di Proses' || status === 'Belum Di Input' || !status) ? 'Belum Di Proses' : status}
-                    </span>
-                </td>
-                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.status_updated_at ? new Date(i.status_updated_at).toLocaleString('id-ID') : '—'}</td>
-                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.pr_updated_at || i.pr_po_updated_at ? new Date(i.pr_updated_at || i.pr_po_updated_at).toLocaleString('id-ID') : '—'}</td>
-                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.po_updated_at || i.pr_po_updated_at ? new Date(i.po_updated_at || i.pr_po_updated_at).toLocaleString('id-ID') : '—'}</td>
-                <td class="px-6 py-5 text-center">
-                    ${isSelesai
-                        ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button>${partInstalled && i.part_installed_at ? `<div class="text-[8px] text-slate-500 mt-1" title="Tanggal perubahan dari NOT INSTALLED ke INSTALLED">${new Date(i.part_installed_at).toLocaleString('id-ID')}</div>` : ''}`
-                        : '<span class="text-[9px] text-slate-300 font-bold uppercase">—</span>'}
-                </td>
-                <td class="px-6 py-5 text-center">${actionBtn}</td>
+                ${columnDefs.map(col => `<td class="${col.tdClass}">${cells[col.id]}</td>`).join('')}
             </tr>
         `;
     }).join('');
@@ -289,6 +346,70 @@ window.saveUserUpdate = async () => {
     }
 
     btn.innerText = "SIMPAN PERUBAHAN"; btn.disabled = false;
+};
+
+// --- MODAL PENGATURAN KOLOM ---
+let tempColumnOrder = null;
+
+window.openColumnSettings = () => {
+    const modal = document.getElementById('modal-column-settings');
+    const listEl = document.getElementById('column-list');
+    if (!modal || !listEl) return;
+
+    tempColumnOrder = getColumnOrder();
+
+    const map = Object.fromEntries(DEFAULT_COLUMNS.map(c => [c.id, c]));
+    const renderList = () => {
+        listEl.innerHTML = tempColumnOrder.map((id, idx) => {
+            const col = map[id];
+            if (!col) return '';
+            return `
+                <div class="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div class="text-[10px] font-black uppercase text-slate-500 flex items-center gap-2">
+                        <span class="text-slate-300">${idx + 1}.</span>
+                        <span>${col.label}</span>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="window.moveColumn('${id}', -1)" class="w-7 h-7 flex items-center justify-center rounded-full bg-white border border-slate-200 text-[10px] hover:bg-slate-100">▲</button>
+                        <button type="button" onclick="window.moveColumn('${id}', 1)" class="w-7 h-7 flex items-center justify-center rounded-full bg-white border border-slate-200 text-[10px] hover:bg-slate-100">▼</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    };
+
+    window.__renderColumnList = renderList;
+    renderList();
+    modal.classList.remove('hidden');
+};
+
+window.moveColumn = (id, direction) => {
+    if (!Array.isArray(tempColumnOrder)) return;
+    const idx = tempColumnOrder.indexOf(id);
+    if (idx === -1) return;
+    const newIndex = idx + direction;
+    if (newIndex < 0 || newIndex >= tempColumnOrder.length) return;
+    const copy = [...tempColumnOrder];
+    const [moved] = copy.splice(idx, 1);
+    copy.splice(newIndex, 0, moved);
+    tempColumnOrder = copy;
+    if (typeof window.__renderColumnList === 'function') {
+        window.__renderColumnList();
+    }
+};
+
+window.closeColumnSettings = () => {
+    const modal = document.getElementById('modal-column-settings');
+    if (modal) modal.classList.add('hidden');
+    tempColumnOrder = null;
+};
+
+window.saveColumnSettings = () => {
+    if (Array.isArray(tempColumnOrder)) {
+        setColumnOrder(tempColumnOrder);
+        applyFiltersAndSort(); // re-render tabel dengan urutan baru
+    }
+    window.closeColumnSettings();
 };
 
 // --- EVENTS ---
