@@ -158,21 +158,19 @@ function renderTable(data) {
                 <td class="px-6 py-5 text-center font-black text-indigo-600 text-sm">${i['Quantity Order']} ${i.Satuan}</td>
                 <td class="px-6 py-5 text-[10px] uppercase text-slate-500 font-bold">${i['Nama Line']}<br><span class="text-slate-300 font-normal italic">${i['Nama Mesin']}</span></td>
                 <td class="px-6 py-5 text-[10px] text-slate-600 max-w-[200px]">${i['Project'] ? i['Project'] : '-'}</td>
-                <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}</td>
+                <td class="px-6 py-5 text-[10px] text-slate-500 font-mono">PR: ${i.PR || '-'}<br>PO: ${i.PO || '-'}<br><span class="text-[8px] text-slate-400 block mt-1">${i.pr_po_updated_at ? new Date(i.pr_po_updated_at).toLocaleString('id-ID') : ''}</span></td>
                 <td class="px-6 py-5 text-center">
                     <span class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest 
                     ${isSelesai ? 'bg-emerald-100 text-emerald-700' : status.toLowerCase() === 'on process' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
                         ${(status === 'Selesai' || status === 'Sudah Datang') ? 'Sudah Datang' : (status === 'Pending' || status === 'Belum Di Proses' || status === 'Belum Di Input' || !status) ? 'Belum Di Proses' : status}
                     </span>
+                    <div class="text-[8px] text-slate-400 mt-1">${i.status_updated_at ? new Date(i.status_updated_at).toLocaleString('id-ID') : ''}</div>
                 </td>
-                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.status_updated_at ? new Date(i.status_updated_at).toLocaleString('id-ID') : '—'}</td>
-                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.pr_po_updated_at ? new Date(i.pr_po_updated_at).toLocaleString('id-ID') : '—'}</td>
                 <td class="px-6 py-5 text-center">
                     ${isSelesai
-                        ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button>`
+                        ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button><div class="text-[8px] text-slate-400 mt-1">${i.part_installed_at ? new Date(i.part_installed_at).toLocaleString('id-ID') : ''}</div>`
                         : '<span class="text-[9px] text-slate-300 font-bold uppercase">—</span>'}
                 </td>
-                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.part_installed_at ? new Date(i.part_installed_at).toLocaleString('id-ID') : '—'}</td>
                 <td class="px-6 py-5 text-center">${actionBtn}</td>
             </tr>
         `;
