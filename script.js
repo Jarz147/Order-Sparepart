@@ -8,6 +8,7 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 const USER_EDIT_EMAIL = "user@order-sparepart.com"; 
 let currentEmail = "";
 let localData = [];
+let mesinList = [];
 
 // --- PENGATURAN KOLOM TABEL ---
 const DEFAULT_COLUMNS = [
@@ -52,6 +53,44 @@ function getColumnDefsInOrder() {
     return order.map(id => map[id]).filter(Boolean);
 }
 
+// --- NAMA MESIN DROPDOWN ---
+const MESIN_KEY = 'order-sparepart-nama-mesin-v1';
+
+function loadMesinList() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(MESIN_KEY) || '[]');
+        if (Array.isArray(stored) && stored.length) {
+            mesinList = stored;
+        } else {
+            mesinList = [];
+        }
+    } catch {
+        mesinList = [];
+    }
+}
+
+function saveMesinList() {
+    localStorage.setItem(MESIN_KEY, JSON.stringify(mesinList));
+}
+
+function renderMesinDropdown() {
+    const select = document.getElementById('nama_mesin');
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = '<option value="" disabled selected>PILIH NAMA MESIN</option>';
+    mesinList.forEach(nama => {
+        const opt = document.createElement('option');
+        opt.value = nama;
+        opt.textContent = nama;
+        select.appendChild(opt);
+    });
+    if (mesinList.includes(current)) {
+        select.value = current;
+    } else {
+        select.value = '';
+    }
+}
+
 // --- SESSION CHECK ---
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -64,6 +103,11 @@ async function checkSession() {
         
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
         document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
+
+        // Inisialisasi list mesin dari localStorage lalu render dropdown
+        loadMesinList();
+        renderMesinDropdown();
+
         fetchOrders();
     }
 }
@@ -442,6 +486,45 @@ window.exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
     XLSX.writeFile(wb, "Sparepart_Report.xlsx");
+};
+
+// --- IMPORT NAMA MESIN DARI EXCEL ---
+// Format sederhana: ambil semua nilai di kolom pertama (misal A) sebagai nama mesin
+window.handleImportMesin = (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 }); // array of rows
+
+            const names = new Set();
+            json.forEach((row, idx) => {
+                if (!row || !row.length) return;
+                const cell = String(row[0] || '').trim();
+                if (!cell) return;
+                // Jika baris pertama adalah header, boleh kita tetap ikutkan; user bisa buat file tanpa header.
+                names.add(cell);
+            });
+
+            mesinList = Array.from(names).sort((a, b) => a.localeCompare(b));
+            saveMesinList();
+            renderMesinDropdown();
+            alert('Import nama mesin berhasil. Dropdown sudah diperbarui.');
+        } catch (err) {
+            console.error('Gagal membaca file mesin:', err);
+            alert('Gagal import nama mesin. Pastikan file Excel benar.');
+        } finally {
+            // reset supaya pilih file yang sama lagi tetap memicu change
+            event.target.value = '';
+        }
+    };
+    reader.readAsArrayBuffer(file);
 };
 
 // Start
