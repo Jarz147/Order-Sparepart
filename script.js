@@ -166,7 +166,8 @@ function renderTable(data) {
                     </span>
                 </td>
                 <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.status_updated_at ? new Date(i.status_updated_at).toLocaleString('id-ID') : '—'}</td>
-                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.pr_po_updated_at ? new Date(i.pr_po_updated_at).toLocaleString('id-ID') : '—'}</td>
+                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.pr_updated_at || i.pr_po_updated_at ? new Date(i.pr_updated_at || i.pr_po_updated_at).toLocaleString('id-ID') : '—'}</td>
+                <td class="px-6 py-5 text-center text-[9px] text-slate-500 font-mono">${i.po_updated_at || i.pr_po_updated_at ? new Date(i.po_updated_at || i.pr_po_updated_at).toLocaleString('id-ID') : '—'}</td>
                 <td class="px-6 py-5 text-center">
                     ${isSelesai
                         ? `<button onclick="window.togglePartInstalled('${i.id}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${partInstalled ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${partInstalled ? 'INSTALLED' : 'NOT INSTALLED'}</button>${partInstalled && i.part_installed_at ? `<div class="text-[8px] text-slate-500 mt-1" title="Tanggal perubahan dari NOT INSTALLED ke INSTALLED">${new Date(i.part_installed_at).toLocaleString('id-ID')}</div>` : ''}`
@@ -207,9 +208,11 @@ window.saveAdminUpdate = async () => {
     };
     if (row) {
         const statusChanged = (String(row.Status || '').trim() !== String(newStatus).trim());
-        const prPoChanged = (String(row.PR || '').trim() !== newPr || String(row.PO || '').trim() !== newPo);
+        const prChanged = (String(row.PR || '').trim() !== newPr);
+        const poChanged = (String(row.PO || '').trim() !== newPo);
         if (statusChanged) payload.status_updated_at = now;
-        if (prPoChanged) payload.pr_po_updated_at = now;
+        if (prChanged) payload.pr_updated_at = now;
+        if (poChanged) payload.po_updated_at = now;
     }
 
     const { error } = await supabase.from('Order-sparepart').update(payload).eq('id', id);
@@ -299,7 +302,7 @@ window.logout = async () => {
 
 window.exportToExcel = () => {
     const dataForExport = localData.map(item => {
-        const { Project, part_installed, part_installed_at, status_updated_at, pr_po_updated_at, ...rest } = item;
+        const { Project, part_installed, part_installed_at, status_updated_at, pr_updated_at, po_updated_at, pr_po_updated_at, ...rest } = item;
         const fmt = (t) => t ? new Date(t).toLocaleString('id-ID') : '—';
         return { 
             ...rest,
@@ -308,7 +311,8 @@ window.exportToExcel = () => {
                 ? (part_installed ? 'Installed' : 'Not Installed')
                 : '—',
             'Tgl Ubah Status': fmt(status_updated_at),
-            'Tgl Input PR/PO': fmt(pr_po_updated_at),
+            'Tgl Input PR': fmt(pr_updated_at || pr_po_updated_at),
+            'Tgl Input PO': fmt(po_updated_at || pr_po_updated_at),
             'Tgl jadi Installed': fmt(part_installed_at)
         };
     });
