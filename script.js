@@ -775,8 +775,67 @@ window.exportToExcel = () => {
     XLSX.writeFile(wb, "Sparepart_Report.xlsx");
 };
 
-// --- IMPORT NAMA MESIN PER LINE DARI EXCEL ---
-// Format: kolom A = Nama Line, kolom B = Nama Mesin
+// --- MODAL IMPORT MESIN KE LINE (pilih line dulu, lalu file Excel kolom A = mesin) ---
+window.openImportMesinModal = () => {
+    const sel = document.getElementById('import-mesin-line-select');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Pilih Line</option>';
+    lineList.forEach(line => {
+        const opt = document.createElement('option');
+        opt.value = line;
+        opt.textContent = line;
+        sel.appendChild(opt);
+    });
+    sel.value = lineList.length ? lineList[0] : '';
+    document.getElementById('import-mesin-file-in-modal').value = '';
+    document.getElementById('modal-import-mesin')?.classList.remove('hidden');
+};
+
+window.closeImportMesinModal = () => {
+    document.getElementById('modal-import-mesin')?.classList.add('hidden');
+};
+
+window.handleImportMesinFromModal = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const line = (document.getElementById('import-mesin-line-select')?.value || '').trim();
+    if (!line) {
+        alert('Pilih Line tujuan dulu.');
+        event.target.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            const names = new Set();
+            json.forEach((row) => {
+                const cell = String(row?.[0] ?? '').trim();
+                if (cell) names.add(cell);
+            });
+            if (!mesinByLine[line]) mesinByLine[line] = [];
+            names.forEach(n => {
+                if (!mesinByLine[line].includes(n)) mesinByLine[line].push(n);
+            });
+            mesinByLine[line].sort((a, b) => a.localeCompare(b));
+            saveMesinByLine();
+            const formLine = document.getElementById('nama_line')?.value;
+            renderMesinDropdown(formLine || null);
+            window.closeImportMesinModal();
+            alert(`Import berhasil. ${names.size} mesin ditambahkan ke line "${line}".`);
+        } catch (err) {
+            console.error('Gagal baca file:', err);
+            alert('Gagal membaca file Excel.');
+        }
+        event.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+};
+
+// --- IMPORT NAMA MESIN PER LINE DARI EXCEL (format 2 kolom: A=Line B=Mesin, dipakai di Edit List Mesin) ---
 window.handleImportMesin = (event) => {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
