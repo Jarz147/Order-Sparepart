@@ -9,6 +9,7 @@ const USER_EDIT_EMAIL = "user@order-sparepart.com";
 let currentEmail = "";
 let localData = [];
 let mesinList = [];
+let lineList = [];
 
 // --- PENGATURAN KOLOM TABEL ---
 const DEFAULT_COLUMNS = [
@@ -91,6 +92,59 @@ function renderMesinDropdown() {
     }
 }
 
+// --- NAMA LINE DROPDOWN (bisa import dari Excel) ---
+const LINE_KEY = 'order-sparepart-nama-line-v1';
+const DEFAULT_LINE_OPTIONS = [
+    'Assy 1', 'Assy 2', 'Assy 3', 'Assy 4', 'Assy 5', 'Assy 6',
+    'Assy 7', 'Assy 8', 'Assy 9', 'Bending', 'Spinning', 'Kompressor', 'Cooling Tower', 'Project'
+];
+
+function loadLineList() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(LINE_KEY) || '[]');
+        if (Array.isArray(stored) && stored.length) {
+            lineList = stored;
+        } else {
+            lineList = [...DEFAULT_LINE_OPTIONS];
+        }
+    } catch {
+        lineList = [...DEFAULT_LINE_OPTIONS];
+    }
+}
+
+function saveLineList() {
+    localStorage.setItem(LINE_KEY, JSON.stringify(lineList));
+}
+
+function renderLineDropdown() {
+    const select = document.getElementById('nama_line');
+    if (select) {
+        const current = select.value;
+        select.innerHTML = '<option value="" disabled selected>PILIH LINE</option>';
+        lineList.forEach(nama => {
+            const opt = document.createElement('option');
+            opt.value = nama;
+            opt.textContent = nama;
+            select.appendChild(opt);
+        });
+        if (lineList.includes(current)) select.value = current;
+        else select.value = '';
+    }
+    const editLine = document.getElementById('edit-user-line');
+    if (editLine) {
+        const currentEdit = editLine.value;
+        editLine.innerHTML = '';
+        lineList.forEach(nama => {
+            const opt = document.createElement('option');
+            opt.value = nama;
+            opt.textContent = nama;
+            editLine.appendChild(opt);
+        });
+        if (lineList.includes(currentEdit)) editLine.value = currentEdit;
+        else if (lineList.length) editLine.value = lineList[0];
+    }
+}
+
 // --- SESSION CHECK ---
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -104,9 +158,11 @@ async function checkSession() {
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
         document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
 
-        // Inisialisasi list mesin dari localStorage lalu render dropdown
+        // Inisialisasi list mesin & line dari localStorage lalu render dropdown
         loadMesinList();
         renderMesinDropdown();
+        loadLineList();
+        renderLineDropdown();
 
         fetchOrders();
     }
@@ -521,6 +577,43 @@ window.handleImportMesin = (event) => {
             alert('Gagal import nama mesin. Pastikan file Excel benar.');
         } finally {
             // reset supaya pilih file yang sama lagi tetap memicu change
+            event.target.value = '';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+};
+
+// --- IMPORT NAMA LINE DARI EXCEL ---
+// Format: kolom pertama (A) = nama line
+window.handleImportLine = (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            const names = new Set();
+            json.forEach((row) => {
+                if (!row || !row.length) return;
+                const cell = String(row[0] || '').trim();
+                if (!cell) return;
+                names.add(cell);
+            });
+
+            lineList = Array.from(names).sort((a, b) => a.localeCompare(b));
+            saveLineList();
+            renderLineDropdown();
+            alert('Import nama line berhasil. Dropdown sudah diperbarui.');
+        } catch (err) {
+            console.error('Gagal membaca file line:', err);
+            alert('Gagal import nama line. Pastikan file Excel benar.');
+        } finally {
             event.target.value = '';
         }
     };
