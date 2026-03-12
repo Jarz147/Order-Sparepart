@@ -566,7 +566,13 @@ function renderTable(data) {
 
         let actionBtn = '<span class="text-[8px] text-slate-300 font-bold uppercase tracking-tighter">View Only</span>';
         if (isAdmin) {
-            actionBtn = `<button onclick="window.openModal('${i.id}')" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-[9px] hover:bg-indigo-100">EDIT ADMIN</button>`;
+            actionBtn = `
+                <div class="flex flex-col items-center gap-1">
+                    <button onclick="window.openModal('${i.id}')" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-[9px] hover:bg-indigo-100">EDIT ADMIN</button>
+                    <button onclick="window.deleteOrder('${i.id}')" class="px-2 py-1 bg-rose-50 text-rose-500 rounded-lg font-bold text-[8px] hover:bg-rose-100 flex items-center gap-1" title="Hapus Pesanan">
+                        🗑 HAPUS
+                    </button>
+                </div>`;
         } else if (isUserEdit) {
             actionBtn = `<button onclick="window.openUserEditModal('${i.id}')" class="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 text-lg leading-none" title="Edit Detail">✏️</button>`;
         }
@@ -648,6 +654,21 @@ window.saveAdminUpdate = async () => {
     const { error } = await supabase.from('Order-sparepart').update(payload).eq('id', id);
     if (!error) { window.closeModal(); fetchOrders(); }
     else alert("Gagal update!");
+};
+
+// --- HAPUS PESANAN (ADMIN SAJA) ---
+window.deleteOrder = async (id) => {
+    const row = localData.find(r => String(r.id) === String(id));
+    if (!row) return;
+    const info = `${row['Nama Barang'] || ''} (${row['Nama Line'] || ''} - ${row['Nama Mesin'] || ''})`;
+    const ok = confirm(`Yakin hapus pesanan ini?\n\n${info}\n\nTindakan ini tidak bisa dibatalkan.`);
+    if (!ok) return;
+    const { error } = await supabase.from('Order-sparepart').delete().eq('id', id);
+    if (error) {
+        alert("Gagal menghapus pesanan: " + (error.message || ""));
+        return;
+    }
+    await fetchOrders();
 };
 
 // --- PART INSTALLED TOGGLE (only when Status = Sudah Datang; one click = INSTALLED ↔ NOT INSTALLED, saved to DB) ---
