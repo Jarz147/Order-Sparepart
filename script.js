@@ -57,8 +57,34 @@ function getColumnDefsInOrder() {
 // --- NAMA MESIN PER LINE ---
 const MESIN_BY_LINE_KEY = 'order-sparepart-mesin-by-line-v1';
 const MESIN_KEY = 'order-sparepart-nama-mesin-v1'; // legacy
+const APP_MASTER_TABLE = 'app_master'; // tabel Supabase: key (text), value (jsonb)
 
-function loadMesinByLine() {
+async function fetchMasterData() {
+    try {
+        const { data: lineRow } = await supabase.from(APP_MASTER_TABLE).select('value').eq('key', 'line_list').maybeSingle();
+        if (lineRow?.value && Array.isArray(lineRow.value) && lineRow.value.length) {
+            lineList = lineRow.value;
+            localStorage.setItem(LINE_KEY, JSON.stringify(lineList));
+        } else {
+            loadLineListFromStorage();
+        }
+    } catch {
+        loadLineListFromStorage();
+    }
+    try {
+        const { data: mesinRow } = await supabase.from(APP_MASTER_TABLE).select('value').eq('key', 'mesin_by_line').maybeSingle();
+        if (mesinRow?.value && typeof mesinRow.value === 'object' && !Array.isArray(mesinRow.value)) {
+            mesinByLine = mesinRow.value;
+            localStorage.setItem(MESIN_BY_LINE_KEY, JSON.stringify(mesinByLine));
+        } else {
+            loadMesinByLineFromStorage();
+        }
+    } catch {
+        loadMesinByLineFromStorage();
+    }
+}
+
+function loadMesinByLineFromStorage() {
     try {
         const stored = localStorage.getItem(MESIN_BY_LINE_KEY);
         if (stored) {
@@ -86,8 +112,13 @@ function loadMesinByLine() {
     }
 }
 
+function loadMesinByLine() {
+    loadMesinByLineFromStorage();
+}
+
 function saveMesinByLine() {
     localStorage.setItem(MESIN_BY_LINE_KEY, JSON.stringify(mesinByLine));
+    supabase.from(APP_MASTER_TABLE).upsert({ key: 'mesin_by_line', value: mesinByLine }, { onConflict: 'key' }).then(() => {}).catch(() => {});
 }
 
 // selectedLine = nama line yang dipilih di form (atau null)
@@ -133,7 +164,7 @@ const DEFAULT_LINE_OPTIONS = [
     'Assy 7', 'Assy 8', 'Assy 9', 'Bending', 'Spinning', 'Kompressor', 'Cooling Tower', 'Project'
 ];
 
-function loadLineList() {
+function loadLineListFromStorage() {
     try {
         const stored = JSON.parse(localStorage.getItem(LINE_KEY) || '[]');
         if (Array.isArray(stored) && stored.length) {
@@ -146,8 +177,13 @@ function loadLineList() {
     }
 }
 
+function loadLineList() {
+    loadLineListFromStorage();
+}
+
 function saveLineList() {
     localStorage.setItem(LINE_KEY, JSON.stringify(lineList));
+    supabase.from(APP_MASTER_TABLE).upsert({ key: 'line_list', value: lineList }, { onConflict: 'key' }).then(() => {}).catch(() => {});
 }
 
 function renderLineDropdown() {
@@ -382,9 +418,8 @@ async function checkSession() {
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
         document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
 
-        // Inisialisasi list mesin per line & line dari localStorage lalu render dropdown
-        loadMesinByLine();
-        loadLineList();
+        // Muat Line & Mesin dari Supabase (untuk semua user termasuk user@order-sparepart.com), fallback ke localStorage
+        await fetchMasterData();
         renderLineDropdown();
         renderMesinDropdown(null);
 
