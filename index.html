@@ -42,11 +42,6 @@
                 <button id="install-btn" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9px] font-black px-4 py-2.5 rounded-xl border border-slate-200 uppercase transition-all" onclick="window.toggleInstall()">UNINSTALLED</button>
                 <div id="admin-tools" class="hidden flex gap-2 items-center">
                     <button onclick="window.exportToExcel()" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black px-4 py-2.5 rounded-xl shadow-md uppercase transition-all">Export Report</button>
-                    <button type="button" onclick="window.openImportMesinModal()" class="bg-sky-500 hover:bg-sky-600 text-white text-[9px] font-black px-4 py-2.5 rounded-xl shadow-md uppercase transition-all">Import Mesin (Excel)</button>
-                    <div class="relative">
-                        <input type="file" id="import-line-input" accept=".xlsx,.xls" class="absolute inset-0 opacity-0 cursor-pointer" onchange="window.handleImportLine(event)">
-                        <button type="button" class="bg-violet-500 hover:bg-violet-600 text-white text-[9px] font-black px-4 py-2.5 rounded-xl shadow-md uppercase transition-all">Import Line (Excel)</button>
-                    </div>
                     <button type="button" onclick="window.openEditListMesin()" class="bg-sky-100 hover:bg-sky-200 text-sky-700 text-[9px] font-black px-4 py-2.5 rounded-xl border border-sky-200 uppercase transition-all">Edit List Mesin</button>
                     <button type="button" onclick="window.openEditListLine()" class="bg-violet-100 hover:bg-violet-200 text-violet-700 text-[9px] font-black px-4 py-2.5 rounded-xl border border-violet-200 uppercase transition-all">Edit List Line</button>
                     <button type="button" onclick="window.downloadTemplateExcel()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 text-[9px] font-black px-4 py-2.5 rounded-xl border border-amber-200 uppercase transition-all">Template Excel</button>
