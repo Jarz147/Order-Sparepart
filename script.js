@@ -775,6 +775,42 @@ window.exportToExcel = () => {
     XLSX.writeFile(wb, "Sparepart_Report.xlsx");
 };
 
+// --- DOWNLOAD TEMPLATE EXCEL UNTUK IMPORT ---
+window.downloadTemplateExcel = () => {
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Import Line (kolom A = Nama Line)
+    const wsLine = XLSX.utils.aoa_to_sheet([
+        ['Nama Line'],
+        ['Assy 1'],
+        ['Assy 2'],
+        ['Bending'],
+        ['Project']
+    ]);
+    XLSX.utils.book_append_sheet(wb, wsLine, 'Import Line');
+
+    // Sheet 2: Import Mesin per Line (A = Line, B = Nama Mesin)
+    const wsMesinPerLine = XLSX.utils.aoa_to_sheet([
+        ['Line', 'Nama Mesin'],
+        ['Assy 1', 'Mesin A'],
+        ['Assy 1', 'Mesin B'],
+        ['Assy 2', 'Mesin C'],
+        ['Bending', 'Mesin D']
+    ]);
+    XLSX.utils.book_append_sheet(wb, wsMesinPerLine, 'Import Mesin per Line');
+
+    // Sheet 3: Import Mesin (satu kolom - dipakai saat pilih line di aplikasi dulu)
+    const wsMesin = XLSX.utils.aoa_to_sheet([
+        ['Nama Mesin'],
+        ['Mesin 1'],
+        ['Mesin 2'],
+        ['Mesin 3']
+    ]);
+    XLSX.utils.book_append_sheet(wb, wsMesin, 'Import Mesin (satu line)');
+
+    XLSX.writeFile(wb, 'Template_Import_Sparepart.xlsx');
+};
+
 // --- MODAL IMPORT MESIN KE LINE (pilih line dulu, lalu file Excel kolom A = mesin) ---
 window.openImportMesinModal = () => {
     const sel = document.getElementById('import-mesin-line-select');
