@@ -61,8 +61,8 @@ const APP_MASTER_TABLE = 'app_master'; // tabel Supabase: key (text), value (jso
 
 async function fetchMasterData() {
     try {
-        const { data: lineRow } = await supabase.from(APP_MASTER_TABLE).select('value').eq('key', 'line_list').maybeSingle();
-        if (lineRow?.value && Array.isArray(lineRow.value) && lineRow.value.length) {
+        const { data: lineRow, error: lineErr } = await supabase.from(APP_MASTER_TABLE).select('value').eq('key', 'line_list').maybeSingle();
+        if (!lineErr && lineRow?.value && Array.isArray(lineRow.value) && lineRow.value.length) {
             lineList = lineRow.value;
             localStorage.setItem(LINE_KEY, JSON.stringify(lineList));
         } else {
@@ -72,8 +72,8 @@ async function fetchMasterData() {
         loadLineListFromStorage();
     }
     try {
-        const { data: mesinRow } = await supabase.from(APP_MASTER_TABLE).select('value').eq('key', 'mesin_by_line').maybeSingle();
-        if (mesinRow?.value && typeof mesinRow.value === 'object' && !Array.isArray(mesinRow.value)) {
+        const { data: mesinRow, error: mesinErr } = await supabase.from(APP_MASTER_TABLE).select('value').eq('key', 'mesin_by_line').maybeSingle();
+        if (!mesinErr && mesinRow?.value && typeof mesinRow.value === 'object' && !Array.isArray(mesinRow.value)) {
             mesinByLine = mesinRow.value;
             localStorage.setItem(MESIN_BY_LINE_KEY, JSON.stringify(mesinByLine));
         } else {
@@ -303,8 +303,17 @@ window.importMesinInModal = (event) => {
                 if (!byLine[lineName].includes(mesinName)) byLine[lineName].push(mesinName);
             });
             Object.keys(byLine).forEach(l => byLine[l].sort((a, b) => a.localeCompare(b)));
-            tempMesinByLine = byLine;
+            // Gabung dengan data yang sudah ada (tidak menimpa)
+            Object.keys(byLine).forEach((lineName) => {
+                if (!tempMesinByLine[lineName]) tempMesinByLine[lineName] = [];
+                byLine[lineName].forEach((m) => {
+                    if (!tempMesinByLine[lineName].includes(m)) tempMesinByLine[lineName].push(m);
+                });
+                tempMesinByLine[lineName].sort((a, b) => a.localeCompare(b));
+            });
             renderEditMesinList();
+            const totalMesin = Object.values(byLine).reduce((s, arr) => s + arr.length, 0);
+            alert(`Import berhasil (digabung dengan data yang ada). ${Object.keys(byLine).length} line, ${totalMesin} mesin dari file. Klik Simpan untuk menyimpan ke server.`);
         } catch (err) {
             alert('Gagal baca file Excel. Format: kolom A = Line, kolom B = Nama Mesin.');
         }
@@ -384,8 +393,12 @@ window.importLineInModal = (event) => {
                 const cell = String(row?.[0] ?? '').trim();
                 if (cell) names.add(cell);
             });
-            tempLineList = Array.from(names).sort((a, b) => a.localeCompare(b));
+            // Gabung dengan data yang sudah ada (tidak menimpa)
+            const sebelum = tempLineList.length;
+            tempLineList = Array.from(new Set([...tempLineList, ...names])).sort((a, b) => a.localeCompare(b));
+            const tambah = tempLineList.length - sebelum;
             renderEditLineList();
+            alert(`Import berhasil (digabung dengan data yang ada). ${tambah} line baru ditambahkan. Total sekarang: ${tempLineList.length} line. Klik Simpan untuk menyimpan ke server.`);
         } catch (err) {
             alert('Gagal baca file Excel.');
         }
@@ -928,11 +941,18 @@ window.handleImportMesin = (event) => {
                 if (!byLine[lineName].includes(mesinName)) byLine[lineName].push(mesinName);
             });
             Object.keys(byLine).forEach(l => byLine[l].sort((a, b) => a.localeCompare(b)));
-            mesinByLine = byLine;
+            // Gabung dengan data yang sudah ada (tidak menimpa)
+            Object.keys(byLine).forEach((lineName) => {
+                if (!mesinByLine[lineName]) mesinByLine[lineName] = [];
+                byLine[lineName].forEach((m) => {
+                    if (!mesinByLine[lineName].includes(m)) mesinByLine[lineName].push(m);
+                });
+                mesinByLine[lineName].sort((a, b) => a.localeCompare(b));
+            });
             saveMesinByLine();
             const formLine = document.getElementById('nama_line')?.value;
             renderMesinDropdown(formLine || null);
-            alert('Import mesin per line berhasil. Pilih Line lalu pilih Mesin.');
+            alert('Import mesin per line berhasil (digabung dengan data yang ada). Pilih Line lalu pilih Mesin.');
         } catch (err) {
             console.error('Gagal membaca file mesin:', err);
             alert('Gagal import. Format Excel: kolom A = Line, kolom B = Nama Mesin.');
@@ -966,10 +986,11 @@ window.handleImportLine = (event) => {
                 names.add(cell);
             });
 
-            lineList = Array.from(names).sort((a, b) => a.localeCompare(b));
+            // Gabung dengan data yang sudah ada (tidak menimpa)
+            lineList = Array.from(new Set([...lineList, ...names])).sort((a, b) => a.localeCompare(b));
             saveLineList();
             renderLineDropdown();
-            alert('Import nama line berhasil. Dropdown sudah diperbarui.');
+            alert('Import nama line berhasil (digabung dengan data yang ada). Dropdown sudah diperbarui.');
         } catch (err) {
             console.error('Gagal membaca file line:', err);
             alert('Gagal import nama line. Pastikan file Excel benar.');
