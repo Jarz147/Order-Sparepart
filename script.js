@@ -8,7 +8,7 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 const USER_EDIT_EMAIL = "user@order-sparepart.com"; 
 let currentEmail = "";
 let localData = [];
-let mesinList = [];
+let mesinByLine = {}; // { "Line A": ["Mesin1", "Mesin2"], ... }
 let lineList = [];
 
 // --- PENGATURAN KOLOM TABEL ---
@@ -54,38 +54,72 @@ function getColumnDefsInOrder() {
     return order.map(id => map[id]).filter(Boolean);
 }
 
-// --- NAMA MESIN DROPDOWN ---
-const MESIN_KEY = 'order-sparepart-nama-mesin-v1';
+// --- NAMA MESIN PER LINE ---
+const MESIN_BY_LINE_KEY = 'order-sparepart-mesin-by-line-v1';
+const MESIN_KEY = 'order-sparepart-nama-mesin-v1'; // legacy
 
-function loadMesinList() {
+function loadMesinByLine() {
     try {
-        const stored = JSON.parse(localStorage.getItem(MESIN_KEY) || '[]');
-        if (Array.isArray(stored) && stored.length) {
-            mesinList = stored;
-        } else {
-            mesinList = [];
+        const stored = localStorage.getItem(MESIN_BY_LINE_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                mesinByLine = parsed;
+                return;
+            }
         }
+        // Migrasi: data lama (flat array) bisa dijadikan satu key "Umum"
+        const old = localStorage.getItem(MESIN_KEY);
+        if (old) {
+            try {
+                const arr = JSON.parse(old);
+                if (Array.isArray(arr) && arr.length) {
+                    mesinByLine = { 'Umum': arr };
+                    saveMesinByLine();
+                    return;
+                }
+            } catch (_) {}
+        }
+        mesinByLine = {};
     } catch {
-        mesinList = [];
+        mesinByLine = {};
     }
 }
 
-function saveMesinList() {
-    localStorage.setItem(MESIN_KEY, JSON.stringify(mesinList));
+function saveMesinByLine() {
+    localStorage.setItem(MESIN_BY_LINE_KEY, JSON.stringify(mesinByLine));
 }
 
-function renderMesinDropdown() {
+// selectedLine = nama line yang dipilih di form (atau null)
+function renderMesinDropdown(selectedLine) {
     const select = document.getElementById('nama_mesin');
     if (!select) return;
     const current = select.value;
-    select.innerHTML = '<option value="" disabled selected>PILIH NAMA MESIN</option>';
-    mesinList.forEach(nama => {
+    select.innerHTML = '';
+    if (!selectedLine || !selectedLine.trim()) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Pilih Line terlebih dahulu';
+        opt.disabled = true;
+        opt.selected = true;
+        select.appendChild(opt);
+        select.value = '';
+        return;
+    }
+    const list = mesinByLine[selectedLine] || [];
+    const opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = 'PILIH NAMA MESIN';
+    opt0.disabled = true;
+    opt0.selected = true;
+    select.appendChild(opt0);
+    list.forEach(nama => {
         const opt = document.createElement('option');
         opt.value = nama;
         opt.textContent = nama;
         select.appendChild(opt);
     });
-    if (mesinList.includes(current)) {
+    if (list.includes(current)) {
         select.value = current;
     } else {
         select.value = '';
@@ -145,6 +179,196 @@ function renderLineDropdown() {
     }
 }
 
+// --- MODAL EDIT LIST MESIN (per line) ---
+let tempMesinByLine = {};
+
+function getEditMesinSelectedLine() {
+    const sel = document.getElementById('edit-mesin-line-select');
+    return (sel && sel.value) ? sel.value.trim() : '';
+}
+
+function renderEditMesinList() {
+    const el = document.getElementById('edit-mesin-list');
+    if (!el) return;
+    const line = getEditMesinSelectedLine();
+    const list = line ? (tempMesinByLine[line] || []) : [];
+    el.innerHTML = list.map((nama, idx) => `
+        <div class="flex items-center justify-between px-4 py-2.5 bg-slate-50 rounded-2xl border border-slate-200">
+            <span class="text-sm font-semibold text-slate-700">${nama}</span>
+            <button type="button" onclick="window.removeMesinFromEdit(${idx})" class="p-1.5 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200 text-[10px] font-black" title="Hapus">✕</button>
+        </div>
+    `).join('');
+}
+
+window.openEditListMesin = () => {
+    tempMesinByLine = JSON.parse(JSON.stringify(mesinByLine));
+    const lineSelect = document.getElementById('edit-mesin-line-select');
+    if (lineSelect) {
+        lineSelect.innerHTML = '';
+        lineList.forEach(line => {
+            const opt = document.createElement('option');
+            opt.value = line;
+            opt.textContent = line;
+            lineSelect.appendChild(opt);
+        });
+        if (lineList.length) {
+            lineSelect.value = lineList[0];
+            lineSelect.addEventListener('change', () => renderEditMesinList());
+        }
+    }
+    document.getElementById('edit-mesin-new').value = '';
+    renderEditMesinList();
+    document.getElementById('modal-edit-mesin')?.classList.remove('hidden');
+};
+
+window.addMesinFromEdit = () => {
+    const line = getEditMesinSelectedLine();
+    if (!line) {
+        alert('Pilih Line dulu.');
+        return;
+    }
+    const input = document.getElementById('edit-mesin-new');
+    const nama = (input?.value || '').trim();
+    if (!nama) return;
+    if (!tempMesinByLine[line]) tempMesinByLine[line] = [];
+    if (tempMesinByLine[line].includes(nama)) {
+        alert('Nama mesin sudah ada di line ini.');
+        return;
+    }
+    tempMesinByLine[line].push(nama);
+    tempMesinByLine[line].sort((a, b) => a.localeCompare(b));
+    input.value = '';
+    renderEditMesinList();
+};
+
+window.removeMesinFromEdit = (idx) => {
+    const line = getEditMesinSelectedLine();
+    if (!line || !tempMesinByLine[line]) return;
+    tempMesinByLine[line].splice(idx, 1);
+    renderEditMesinList();
+};
+
+window.importMesinInModal = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            const byLine = {};
+            json.forEach((row) => {
+                const lineName = String(row?.[0] ?? '').trim();
+                const mesinName = String(row?.[1] ?? '').trim();
+                if (!lineName || !mesinName) return;
+                if (!byLine[lineName]) byLine[lineName] = [];
+                if (!byLine[lineName].includes(mesinName)) byLine[lineName].push(mesinName);
+            });
+            Object.keys(byLine).forEach(l => byLine[l].sort((a, b) => a.localeCompare(b)));
+            tempMesinByLine = byLine;
+            renderEditMesinList();
+        } catch (err) {
+            alert('Gagal baca file Excel. Format: kolom A = Line, kolom B = Nama Mesin.');
+        }
+        event.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+};
+
+window.closeEditListMesin = () => {
+    const lineSelect = document.getElementById('edit-mesin-line-select');
+    if (lineSelect) {
+        lineSelect.replaceWith(lineSelect.cloneNode(true));
+    }
+    document.getElementById('modal-edit-mesin')?.classList.add('hidden');
+};
+
+window.saveEditListMesin = () => {
+    mesinByLine = JSON.parse(JSON.stringify(tempMesinByLine));
+    saveMesinByLine();
+    const formLine = document.getElementById('nama_line')?.value;
+    renderMesinDropdown(formLine || null);
+    window.closeEditListMesin();
+};
+
+// --- MODAL EDIT LIST LINE ---
+let tempLineList = [];
+
+function renderEditLineList() {
+    const el = document.getElementById('edit-line-list');
+    if (!el) return;
+    el.innerHTML = tempLineList.map((nama, idx) => `
+        <div class="flex items-center justify-between px-4 py-2.5 bg-slate-50 rounded-2xl border border-slate-200">
+            <span class="text-sm font-semibold text-slate-700">${nama}</span>
+            <button type="button" onclick="window.removeLineFromEdit(${idx})" class="p-1.5 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200 text-[10px] font-black" title="Hapus">✕</button>
+        </div>
+    `).join('');
+}
+
+window.openEditListLine = () => {
+    tempLineList = [...lineList];
+    document.getElementById('edit-line-new').value = '';
+    renderEditLineList();
+    document.getElementById('modal-edit-line')?.classList.remove('hidden');
+};
+
+window.addLineFromEdit = () => {
+    const input = document.getElementById('edit-line-new');
+    const nama = (input?.value || '').trim();
+    if (!nama) return;
+    if (tempLineList.includes(nama)) {
+        alert('Nama line sudah ada.');
+        return;
+    }
+    tempLineList.push(nama);
+    tempLineList.sort((a, b) => a.localeCompare(b));
+    input.value = '';
+    renderEditLineList();
+};
+
+window.removeLineFromEdit = (idx) => {
+    tempLineList.splice(idx, 1);
+    renderEditLineList();
+};
+
+window.importLineInModal = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            const names = new Set();
+            json.forEach((row) => {
+                const cell = String(row?.[0] ?? '').trim();
+                if (cell) names.add(cell);
+            });
+            tempLineList = Array.from(names).sort((a, b) => a.localeCompare(b));
+            renderEditLineList();
+        } catch (err) {
+            alert('Gagal baca file Excel.');
+        }
+        event.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+};
+
+window.closeEditListLine = () => {
+    document.getElementById('modal-edit-line')?.classList.add('hidden');
+};
+
+window.saveEditListLine = () => {
+    lineList = [...tempLineList];
+    saveLineList();
+    renderLineDropdown();
+    window.closeEditListLine();
+};
+
 // --- SESSION CHECK ---
 async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -158,11 +382,11 @@ async function checkSession() {
         document.getElementById('admin-tools')?.classList.toggle('hidden', !isAdmin);
         document.getElementById('form-container')?.classList.toggle('hidden', isAdmin);
 
-        // Inisialisasi list mesin & line dari localStorage lalu render dropdown
-        loadMesinList();
-        renderMesinDropdown();
+        // Inisialisasi list mesin per line & line dari localStorage lalu render dropdown
+        loadMesinByLine();
         loadLineList();
         renderLineDropdown();
+        renderMesinDropdown(null);
 
         fetchOrders();
     }
@@ -221,9 +445,10 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
 
     const { error } = await supabase.from('Order-sparepart').insert([payload]);
     if (error) alert("Error: " + error.message); 
-    else { 
-        document.getElementById('order-form').reset(); 
-        fetchOrders(); 
+    else {
+        document.getElementById('order-form').reset();
+        renderMesinDropdown(null);
+        fetchOrders();
     }
     btn.innerText = "KIRIM PERMINTAAN"; btn.disabled = false;
 });
@@ -515,6 +740,12 @@ window.saveColumnSettings = () => {
 // --- EVENTS ---
 document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
 document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
+document.getElementById('nama_line')?.addEventListener('change', () => {
+    const line = document.getElementById('nama_line')?.value || '';
+    renderMesinDropdown(line || null);
+    const mesinEl = document.getElementById('nama_mesin');
+    if (mesinEl) mesinEl.value = '';
+});
 
 window.logout = async () => { 
     await supabase.auth.signOut(); 
@@ -544,8 +775,8 @@ window.exportToExcel = () => {
     XLSX.writeFile(wb, "Sparepart_Report.xlsx");
 };
 
-// --- IMPORT NAMA MESIN DARI EXCEL ---
-// Format sederhana: ambil semua nilai di kolom pertama (misal A) sebagai nama mesin
+// --- IMPORT NAMA MESIN PER LINE DARI EXCEL ---
+// Format: kolom A = Nama Line, kolom B = Nama Mesin
 window.handleImportMesin = (event) => {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
@@ -555,28 +786,27 @@ window.handleImportMesin = (event) => {
         try {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 }); // array of rows
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-            const names = new Set();
-            json.forEach((row, idx) => {
-                if (!row || !row.length) return;
-                const cell = String(row[0] || '').trim();
-                if (!cell) return;
-                // Jika baris pertama adalah header, boleh kita tetap ikutkan; user bisa buat file tanpa header.
-                names.add(cell);
+            const byLine = {};
+            json.forEach((row) => {
+                const lineName = String(row?.[0] ?? '').trim();
+                const mesinName = String(row?.[1] ?? '').trim();
+                if (!lineName || !mesinName) return;
+                if (!byLine[lineName]) byLine[lineName] = [];
+                if (!byLine[lineName].includes(mesinName)) byLine[lineName].push(mesinName);
             });
-
-            mesinList = Array.from(names).sort((a, b) => a.localeCompare(b));
-            saveMesinList();
-            renderMesinDropdown();
-            alert('Import nama mesin berhasil. Dropdown sudah diperbarui.');
+            Object.keys(byLine).forEach(l => byLine[l].sort((a, b) => a.localeCompare(b)));
+            mesinByLine = byLine;
+            saveMesinByLine();
+            const formLine = document.getElementById('nama_line')?.value;
+            renderMesinDropdown(formLine || null);
+            alert('Import mesin per line berhasil. Pilih Line lalu pilih Mesin.');
         } catch (err) {
             console.error('Gagal membaca file mesin:', err);
-            alert('Gagal import nama mesin. Pastikan file Excel benar.');
+            alert('Gagal import. Format Excel: kolom A = Line, kolom B = Nama Mesin.');
         } finally {
-            // reset supaya pilih file yang sama lagi tetap memicu change
             event.target.value = '';
         }
     };
