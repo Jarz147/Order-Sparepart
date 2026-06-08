@@ -8,46 +8,22 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 const USER_EDIT_EMAIL = "user@order-sparepart.com"; 
 let currentEmail = "";
 let localData = [];
-let staticOrderNoMap = {}; // id -> no urut tetap (tidak berubah saat sort/filter)
-const ORDER_NO_KEY = 'order-sparepart-no-urut-v1';
+let staticOrderNoMap = {}; // cache id -> no urut dari DB (tampilan tetap saat sort/filter)
 let mesinByLine = {}; // { "Line A": ["Mesin1", "Mesin2"], ... }
 let lineList = [];
-
-function loadStoredOrderNumbers() {
-    try {
-        const stored = JSON.parse(localStorage.getItem(ORDER_NO_KEY) || '{}');
-        return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
-    } catch {
-        return {};
-    }
-}
-
-function saveStoredOrderNumbers() {
-    const stored = loadStoredOrderNumbers();
-    Object.entries(staticOrderNoMap).forEach(([id, n]) => { stored[String(id)] = n; });
-    localStorage.setItem(ORDER_NO_KEY, JSON.stringify(stored));
-}
 
 function getStaticOrderNo(id) {
     return staticOrderNoMap[id] ?? staticOrderNoMap[String(id)] ?? null;
 }
 
 function rebuildStaticOrderNumbers() {
-    const stored = loadStoredOrderNumbers();
     staticOrderNoMap = {};
     localData.forEach(i => {
-        const fromDb = Number(i['No Urut']);
-        const fromStored = Number(stored[String(i.id)]);
-        const n = Number.isFinite(fromDb) && fromDb > 0 ? fromDb
-            : Number.isFinite(fromStored) && fromStored > 0 ? fromStored
-            : null;
-        if (n != null) staticOrderNoMap[i.id] = n;
+        const n = Number(i['No Urut']);
+        if (Number.isFinite(n) && n > 0) staticOrderNoMap[i.id] = n;
     });
     const missing = localData.filter(i => getStaticOrderNo(i.id) == null);
-    if (!missing.length) {
-        saveStoredOrderNumbers();
-        return;
-    }
+    if (!missing.length) return;
     const used = new Set(Object.values(staticOrderNoMap));
     const sorted = [...missing].sort((a, b) => {
         const diff = new Date(a.created_at) - new Date(b.created_at);
@@ -59,7 +35,6 @@ function rebuildStaticOrderNumbers() {
         staticOrderNoMap[item.id] = maxN;
         used.add(maxN);
     });
-    saveStoredOrderNumbers();
 }
 
 async function ensureOrderNumbers() {
@@ -67,17 +42,17 @@ async function ensureOrderNumbers() {
     const missing = localData.filter(i => i['No Urut'] == null || i['No Urut'] === '');
     if (!missing.length) return;
     const used = new Set(localData.filter(i => i['No Urut'] != null && i['No Urut'] !== '').map(i => Number(i['No Urut'])));
-    const sorted = [...missing].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    for (const item of sorted) {
+    for (const item of missing) {
         const n = getStaticOrderNo(item.id);
-        if (n == null) continue;
-        if (used.has(n)) continue;
+        if (n == null || used.has(n)) continue;
         used.add(n);
         const { error } = await supabase.from('Order-sparepart').update({ 'No Urut': n }).eq('id', item.id);
+        if (error) {
+            console.error('Gagal simpan No Urut ke Supabase:', error.message);
+            continue;
+        }
         item['No Urut'] = n;
-        if (error) console.warn('No Urut belum tersimpan ke DB (tambahkan kolom "No Urut" di Supabase):', error.message);
     }
-    saveStoredOrderNumbers();
 }
 
 function getNextOrderNo() {
@@ -575,18 +550,7 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'part_installed': false
     };
 
-    let { data: inserted, error } = await supabase.from('Order-sparepart').insert([payload]).select('id');
-    if (error && /No Urut|column|schema/i.test(error.message || '')) {
-        const { 'No Urut': _no, ...payloadWithoutNo } = payload;
-        ({ data: inserted, error } = await supabase.from('Order-sparepart').insert([payloadWithoutNo]).select('id'));
-        if (!error && inserted?.[0]?.id) {
-            staticOrderNoMap[inserted[0].id] = nextNo;
-            saveStoredOrderNumbers();
-        }
-    } else if (!error && inserted?.[0]?.id) {
-        staticOrderNoMap[inserted[0].id] = nextNo;
-        saveStoredOrderNumbers();
-    }
+    const { error } = await supabase.from('Order-sparepart').insert([payload]);
     if (error) alert("Error: " + error.message); 
     else {
         document.getElementById('order-form').reset();
@@ -766,11 +730,6 @@ window.deleteOrder = async (id) => {
         alert("Gagal menghapus pesanan: " + (error.message || ""));
         return;
     }
-    delete staticOrderNoMap[id];
-    delete staticOrderNoMap[String(id)];
-    const stored = loadStoredOrderNumbers();
-    delete stored[String(id)];
-    localStorage.setItem(ORDER_NO_KEY, JSON.stringify(stored));
     await fetchOrders();
 };
 
