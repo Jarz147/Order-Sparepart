@@ -8,12 +8,87 @@ const ADMIN_EMAIL = "admin@order-sparepart.com";
 const USER_EDIT_EMAIL = "user@order-sparepart.com"; 
 let currentEmail = "";
 let localData = [];
+let staticOrderNoMap = {}; // id -> no urut tetap (tidak berubah saat sort/filter)
+const ORDER_NO_KEY = 'order-sparepart-no-urut-v1';
 let mesinByLine = {}; // { "Line A": ["Mesin1", "Mesin2"], ... }
 let lineList = [];
 
+function loadStoredOrderNumbers() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(ORDER_NO_KEY) || '{}');
+        return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    } catch {
+        return {};
+    }
+}
+
+function saveStoredOrderNumbers() {
+    const stored = loadStoredOrderNumbers();
+    Object.entries(staticOrderNoMap).forEach(([id, n]) => { stored[String(id)] = n; });
+    localStorage.setItem(ORDER_NO_KEY, JSON.stringify(stored));
+}
+
+function getStaticOrderNo(id) {
+    return staticOrderNoMap[id] ?? staticOrderNoMap[String(id)] ?? null;
+}
+
+function rebuildStaticOrderNumbers() {
+    const stored = loadStoredOrderNumbers();
+    staticOrderNoMap = {};
+    localData.forEach(i => {
+        const fromDb = Number(i['No Urut']);
+        const fromStored = Number(stored[String(i.id)]);
+        const n = Number.isFinite(fromDb) && fromDb > 0 ? fromDb
+            : Number.isFinite(fromStored) && fromStored > 0 ? fromStored
+            : null;
+        if (n != null) staticOrderNoMap[i.id] = n;
+    });
+    const missing = localData.filter(i => getStaticOrderNo(i.id) == null);
+    if (!missing.length) {
+        saveStoredOrderNumbers();
+        return;
+    }
+    const used = new Set(Object.values(staticOrderNoMap));
+    const sorted = [...missing].sort((a, b) => {
+        const diff = new Date(a.created_at) - new Date(b.created_at);
+        return diff !== 0 ? diff : String(a.id).localeCompare(String(b.id));
+    });
+    let maxN = used.size ? Math.max(...used) : 0;
+    sorted.forEach(item => {
+        maxN += 1;
+        staticOrderNoMap[item.id] = maxN;
+        used.add(maxN);
+    });
+    saveStoredOrderNumbers();
+}
+
+async function ensureOrderNumbers() {
+    rebuildStaticOrderNumbers();
+    const missing = localData.filter(i => i['No Urut'] == null || i['No Urut'] === '');
+    if (!missing.length) return;
+    const used = new Set(localData.filter(i => i['No Urut'] != null && i['No Urut'] !== '').map(i => Number(i['No Urut'])));
+    const sorted = [...missing].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    for (const item of sorted) {
+        const n = getStaticOrderNo(item.id);
+        if (n == null) continue;
+        if (used.has(n)) continue;
+        used.add(n);
+        const { error } = await supabase.from('Order-sparepart').update({ 'No Urut': n }).eq('id', item.id);
+        item['No Urut'] = n;
+        if (error) console.warn('No Urut belum tersimpan ke DB (tambahkan kolom "No Urut" di Supabase):', error.message);
+    }
+    saveStoredOrderNumbers();
+}
+
+function getNextOrderNo() {
+    rebuildStaticOrderNumbers();
+    const allNos = Object.values(staticOrderNoMap);
+    return allNos.length ? Math.max(...allNos) + 1 : 1;
+}
+
 // --- PENGATURAN KOLOM TABEL ---
 const DEFAULT_COLUMNS = [
-    { id: 'no', label: 'No', thClass: 'px-4 py-5 text-center', tdClass: 'px-4 py-5 text-center text-[10px] font-bold text-slate-400' },
+    { id: 'no', label: 'No Urut', thClass: 'px-4 py-5 text-center', tdClass: 'px-4 py-5 text-center text-[10px] font-bold text-slate-400' },
     { id: 'foto', label: 'Foto', thClass: 'px-4 py-5 text-center', tdClass: 'px-4 py-5 flex justify-center' },
     { id: 'tanggal_order', label: 'Tanggal Order', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-[10px] text-slate-400 font-mono text-center' },
     { id: 'detail_barang', label: 'Detail Barang', thClass: 'px-6 py-5', tdClass: 'px-6 py-5' },
@@ -22,11 +97,11 @@ const DEFAULT_COLUMNS = [
     { id: 'detail_pesanan', label: 'Detail Pesanan', thClass: 'px-6 py-5', tdClass: 'px-6 py-5 text-[10px] text-slate-600 max-w-[200px]' },
     { id: 'pr_po', label: 'No. PR/PO', thClass: 'px-6 py-5', tdClass: 'px-6 py-5 text-[10px] text-slate-500 font-mono' },
     { id: 'status', label: 'Status', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center' },
+    { id: 'aksi', label: 'Aksi', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center' },
     { id: 'tgl_status', label: 'Tgl Ubah Status', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center text-[9px] text-slate-500 font-mono' },
     { id: 'tgl_pr', label: 'Tgl Input PR', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center text-[9px] text-slate-500 font-mono' },
     { id: 'tgl_po', label: 'Tgl Input PO', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center text-[9px] text-slate-500 font-mono' },
-    { id: 'part_instal', label: 'Part Instal', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center' },
-    { id: 'aksi', label: 'Aksi', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center' }
+    { id: 'part_instal', label: 'Part Instal', thClass: 'px-6 py-5 text-center', tdClass: 'px-6 py-5 text-center' }
 ];
 
 const COLUMN_KEY = 'order-sparepart-column-order-v1';
@@ -49,7 +124,13 @@ function setColumnOrder(order) {
 }
 
 function getColumnDefsInOrder() {
-    const order = getColumnOrder();
+    let order = getColumnOrder().filter(id => id !== 'aksi');
+    const statusIdx = order.indexOf('status');
+    if (statusIdx !== -1) {
+        order.splice(statusIdx + 1, 0, 'aksi');
+    } else {
+        order.push('aksi');
+    }
     const map = Object.fromEntries(DEFAULT_COLUMNS.map(c => [c.id, c]));
     return order.map(id => map[id]).filter(Boolean);
 }
@@ -443,7 +524,8 @@ async function checkSession() {
 async function fetchOrders() {
     const { data, error } = await supabase.from('Order-sparepart').select('*').order('created_at', { ascending: false });
     if (!error) { 
-        localData = data; 
+        localData = data;
+        await ensureOrderNumbers();
         applyFiltersAndSort(); 
     }
 }
@@ -477,7 +559,9 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
     const fileInput = document.getElementById('foto_barang');
     const fotoUrl = await uploadFile(fileInput.files[0]);
 
+    const nextNo = getNextOrderNo();
     const payload = {
+        'No Urut': nextNo,
         'Nama Barang': document.getElementById('nama_barang').value,
         'Spesifikasi': document.getElementById('spesifikasi').value,
         'Quantity Order': parseInt(document.getElementById('qty').value),
@@ -491,7 +575,18 @@ document.getElementById('order-form')?.addEventListener('submit', async (e) => {
         'part_installed': false
     };
 
-    const { error } = await supabase.from('Order-sparepart').insert([payload]);
+    let { data: inserted, error } = await supabase.from('Order-sparepart').insert([payload]).select('id');
+    if (error && /No Urut|column|schema/i.test(error.message || '')) {
+        const { 'No Urut': _no, ...payloadWithoutNo } = payload;
+        ({ data: inserted, error } = await supabase.from('Order-sparepart').insert([payloadWithoutNo]).select('id'));
+        if (!error && inserted?.[0]?.id) {
+            staticOrderNoMap[inserted[0].id] = nextNo;
+            saveStoredOrderNumbers();
+        }
+    } else if (!error && inserted?.[0]?.id) {
+        staticOrderNoMap[inserted[0].id] = nextNo;
+        saveStoredOrderNumbers();
+    }
     if (error) alert("Error: " + error.message); 
     else {
         document.getElementById('order-form').reset();
@@ -533,6 +628,9 @@ function applyFiltersAndSort() {
         case 'urutan':
             filtered.sort((a, b) => (a['Nama Barang'] || "").localeCompare(b['Nama Barang'] || ""));
             break;
+        case 'no_urut':
+            filtered.sort((a, b) => (getStaticOrderNo(a.id) ?? 0) - (getStaticOrderNo(b.id) ?? 0));
+            break;
     }
 
     renderTable(filtered);
@@ -556,7 +654,7 @@ function renderTable(data) {
     const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
     const isUserEdit = currentEmail.toLowerCase() === USER_EDIT_EMAIL.toLowerCase();
 
-    body.innerHTML = data.map((i, index) => {
+    body.innerHTML = data.map((i) => {
         const status = String(i.Status || i.status || '').trim();
         const isSelesai = status.toLowerCase() === 'selesai' || status.toLowerCase() === 'sudah datang';
         const partInstalled = !!(i.part_installed);
@@ -578,7 +676,7 @@ function renderTable(data) {
         }
 
         const cells = {
-            no: index + 1,
+            no: getStaticOrderNo(i.id) ?? i['No Urut'] ?? '—',
             foto: fotoHtml,
             tanggal_order: new Date(i.created_at).toLocaleDateString('id-ID'),
             detail_barang: `
@@ -668,6 +766,11 @@ window.deleteOrder = async (id) => {
         alert("Gagal menghapus pesanan: " + (error.message || ""));
         return;
     }
+    delete staticOrderNoMap[id];
+    delete staticOrderNoMap[String(id)];
+    const stored = loadStoredOrderNumbers();
+    delete stored[String(id)];
+    localStorage.setItem(ORDER_NO_KEY, JSON.stringify(stored));
     await fetchOrders();
 };
 
@@ -827,6 +930,7 @@ window.exportToExcel = () => {
         const fmt = (t) => t ? new Date(t).toLocaleString('id-ID') : '—';
         return { 
             ...rest,
+            'No Urut': getStaticOrderNo(item.id) ?? item['No Urut'] ?? '—',
             'Detail Pesanan': Project,
             'Status Part Instal': item.Status === 'Sudah Datang' || (item.Status || '').toLowerCase() === 'selesai'
                 ? (part_installed ? 'Installed' : 'Not Installed')
